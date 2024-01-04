@@ -2,7 +2,6 @@
 #define EMU_H
 #include "common.h"
 #include "cpu.h"
-#include "mapper.h"
 #include "ppu.h"
 #include "cart.h"
 #include "main_bus.h"
@@ -13,7 +12,6 @@ typedef struct emulator_struct{
     main_bus_t bus;
     PPU_t PPU;
     cart_t cart;
-    mapper_t *mapper; //a refrence as the size may very depending on the type of mapper
     bool running;
 }emulator_t;
 

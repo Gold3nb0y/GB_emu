@@ -8,5 +8,15 @@
 #include <stddef.h>
 #include "log.h"
 #include <sys/types.h>
+#include <sys/mman.h>
+
+
+//offer these up to the entire system
+void* Malloc(ssize_t size);
+uint8_t* Mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset);
+
+
+#define SUCCESS 0;
+#define FAIL -1;
 
 #endif // !COMMON_H

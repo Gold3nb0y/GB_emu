@@ -13,8 +13,8 @@ typedef struct cart_struct{
     uint16_t new_licensee_code;
     uint8_t SBG_flag;
     uint8_t cart_type; //necessary for mapper
-    uint8_t ROM_size; 
-    uint8_t RAM_size; 
+    uint8_t num_ROM; 
+    uint8_t val_RAM; 
     uint8_t dest_code;
     uint8_t old_licensee_code;
     uint8_t mask_rom_version_numer;

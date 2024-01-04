@@ -5,15 +5,15 @@
 static void cleanup(){
     LOG(INFO, "cleanup");
     release_bus(&emu.bus);  
-    free(emu.mapper);
     exit(0);
 }
 
 void create_emulator(char* filename){
     //deref has higher precidence
+    bool is_CGB;
     load_cart(&emu.cart, filename);
-    create_bus(&emu.bus, emu.cart.RAM_size, emu.cart.ROM_size);
-    create_mapper(&emu.bus);
+    is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
+    create_bus(&emu.bus, emu.cart.num_ROM, emu.cart.val_RAM, is_CGB);
     emu.running = true;
     return;
 }

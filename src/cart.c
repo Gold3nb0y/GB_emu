@@ -29,8 +29,8 @@ void load_cart(cart_t* cart, char* filename){
     fread(&cart->new_licensee_code, 2, 1, fp);
     fread(&cart->SBG_flag, 1, 1, fp);
     fread(&cart->cart_type, 1, 1, fp);
-    fread(&cart->ROM_size, 1, 1, fp);
-    fread(&cart->RAM_size, 1, 1, fp);
+    fread(&cart->num_ROM, 1, 1, fp);
+    fread(&cart->val_RAM, 1, 1, fp);
     fread(&cart->dest_code, 1, 1, fp);
     fread(&cart->old_licensee_code, 1, 1, fp);
     fread(&cart->mask_rom_version_numer, 1, 1, fp);
