@@ -1,6 +1,5 @@
 #include "emulator.h"
-#include "main_bus.h"
-#include "mapper.h"
+#include <stdint.h>
 
 static void cleanup(){
     LOG(INFO, "cleanup");
@@ -14,16 +13,18 @@ void create_emulator(char* filename){
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
     create_bus(&emu.bus, emu.cart.num_ROM, emu.cart.val_RAM, is_CGB);
+    emu.cpu = init(emu.cart.entry, &emu.bus);
     emu.running = true;
     return;
 }
 
 void run(){
-    uint64_t tick = 0;
+    uint64_t ticks, ticked;
+    ticks = 0;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
-        if(tick > 0x1000) emu.running = false;
-        tick++;
+        if((ticked = exec(4)) == 0) emu.running = false; //trigger cpu
+        ticks += ticked;
     }
     cleanup();
 }

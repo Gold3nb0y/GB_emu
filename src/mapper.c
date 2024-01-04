@@ -1,4 +1,15 @@
 #include "mapper.h"
+#include <stdint.h>
+
+static void map_region(uint8_t** bank, size_t size, uint8_t number){
+    //map continously for performance?
+    bank[0] = Mmap(NULL, size*number, PROT_READ | PROT_WRITE, 
+            MAP_PRIVATE | MAP_ANON, -1, 0);
+
+    //populate the ROM_banks list. this will be used for swapping to the specific pages
+    for(uint8_t i = 1; i < number; i++)
+        bank[i] = bank[0] + size*i;
+}
 
 mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM){
     mapper_t* mapper;
@@ -7,52 +18,33 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     //setup the arrays to be used 
     mapper->ROM_banks = Malloc(sizeof(size_t)*(1<<num_ROM));
 
-    //working with max case to start
-    mapper->VRAM_banks = Malloc(sizeof(size_t)*2);
+    mapper->VRAM_banks = Malloc(sizeof(size_t)*num_VRAM);
     if(num_EXRAM)
         mapper->EXRAM_banks = Malloc(sizeof(size_t)*num_EXRAM);
     else 
         mapper->EXRAM_banks = NULL;
     mapper->WRAM_banks = Malloc(sizeof(size_t)*8);
 
-    //map continously for performance?
-    mapper->ROM_banks[0] = Mmap(NULL, ROM_SIZE*(1<<num_ROM), PROT_READ | PROT_WRITE, 
-            MAP_PRIVATE | MAP_ANON, -1, 0);
+    map_region(mapper->ROM_banks, ROM_SIZE, (1<<num_ROM));
     mapper->num_ROM = (1<<num_ROM);
-
-    //populate the ROM_banks list. this will be used for swapping to the specific pages
-    for(uint8_t i = 1; i < (1<<num_ROM); i++)
-        mapper->ROM_banks[i] = mapper->ROM_banks[0] + ROM_SIZE*i;
     LOGF(DEBUG, "ROM: %p",mapper->ROM_banks[0]);
 
     //for now I will handle the maximal case only. I will handle other cases in the future
-    mapper->VRAM_banks[0] = Mmap(NULL, RAM_SIZE*2, PROT_READ | PROT_WRITE, 
-            MAP_PRIVATE | MAP_ANON, -1, 0);
-    mapper->VRAM_banks[1] = mapper->VRAM_banks[0] + RAM_SIZE;
-    LOGF(DEBUG, "VRAM: %p",mapper->VRAM_banks[0]);
+    map_region(mapper->VRAM_banks, RAM_SIZE, num_VRAM);
     mapper->num_VRAM = num_VRAM;
+    LOGF(DEBUG, "VRAM: %p",mapper->VRAM_banks[0]);
 
     if(num_EXRAM){
-        mapper->EXRAM_banks[0] = Mmap(NULL, RAM_SIZE*num_EXRAM, PROT_READ | PROT_WRITE, 
-                MAP_PRIVATE | MAP_ANON, -1, 0);
-        for(uint8_t i = 1; i < num_EXRAM; i++)
-            mapper->ROM_banks[i] = mapper->EXRAM_banks[0] + RAM_SIZE*i;
+        map_region(mapper->EXRAM_banks, RAM_SIZE, num_EXRAM);
         LOGF(DEBUG, "EXRAM: %p",mapper->EXRAM_banks[0]);
     } else {
         LOG(DEBUG, "no exram availible");
     }
     mapper->num_EXRAM = num_EXRAM;
 
-    mapper->WRAM_banks[0] = Mmap(NULL, WRAM_SIZE*8, PROT_READ | PROT_WRITE, 
-            MAP_PRIVATE | MAP_ANON, -1, 0);
-    for(uint8_t i = 1; i < 8; i++)
-        mapper->WRAM_banks[i] = mapper->VRAM_banks[0] + WRAM_SIZE*i;
-    mapper->num_WRAM = 8;
-    if(mapper->WRAM_banks[0]){
-        LOGF(DEBUG, "WRAM: %p",mapper->WRAM_banks[0]);
-    } else {
-        LOG(DEBUG, "WRAM not used");
-    }
+    map_region(mapper->WRAM_banks, WRAM_SIZE, num_WRAM);
+    mapper->num_WRAM = num_WRAM;
+    LOGF(DEBUG, "WRAM: %p",mapper->WRAM_banks[0]);
 
     //to be figured out later
     mapper->read_RAM = NULL;

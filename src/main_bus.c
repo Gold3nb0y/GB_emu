@@ -15,8 +15,8 @@ static uint8_t parse_ram(uint8_t header_val){
         case 5:
             return 8;
         default:
-            LOG(ERROR, "unused RAM value in header");
-            exit(1);
+            LOG(ERROR, "unused RAM value in header, returning 0");
+            return 0;
     }
 }
 
