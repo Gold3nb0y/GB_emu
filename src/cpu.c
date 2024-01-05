@@ -9,6 +9,24 @@ static void ld_rr(byte opcode);
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
 
+//TODO I may need to implement a read byte and a read word. there are a few times where I have to read a word instead of a byte
+
+//for arithmetic and logic
+#define ADD 0
+#define ADC 1
+#define SUB 2
+#define SBC 3
+#define AND 4
+#define XOR 5
+#define OR  6
+#define CP  7
+
+//for the upper ones
+#define POP 1
+#define PUSH 5
+#define IMMI_ARI 6
+#define RST 6
+
 //for testing
 static void patch(){
     ssize_t i = 0x1000;
@@ -84,6 +102,262 @@ static void single_reg_inst(byte opcode){
             LOG(ERROR, "Not implemented");
     }
 }
+
+static void check_HC_add(uint8_t val1, uint8_t val2){
+    uint8_t chk;
+    chk = val1 & 0xf + val2 & 0xf;
+    if(chk & 0x10) cpu.FLAGS.HC = 1;
+    else cpu.FLAGS.HC = 0;
+}
+
+static void check_HC_sub(uint8_t val1, uint8_t val2){
+    uint8_t chk;
+    chk = val1 & 0x10 - val2 & 0xf;
+    if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 5th bit of val1 was borrowed
+    else cpu.FLAGS.HC = 1;
+}
+
+static uint8_t add(byte v1, byte v2){
+    uint8_t result;
+    result = v1 + v2;
+    if(result < cpu.A) cpu.FLAGS.C = 1;
+    else cpu.FLAGS.C = 0;
+    check_HC_add(v1, v2);
+    cpu.FLAGS.N = 0;
+    return result;
+}
+
+static uint8_t sub(byte v1, byte v2){
+    uint8_t result;
+    result = v1 - v2;
+    cpu.FLAGS.C = (result < cpu.A) ?  1 : 0;
+    check_HC_sub(v1, v2);
+    cpu.FLAGS.N = 1;
+    return result;
+}
+
+static void push(uint16_t* reg){
+    //need to do the writing still
+    cpu.SP -= 2;
+}
+
+static void pop(uint16_t* reg){
+    //need to do the reading still
+    cpu.SP += 2;
+}
+
+static void do_ret(){
+    //cpu.PC = read_bus(cpu->bus);
+    pop(&cpu.PC);
+}
+
+static void do_call(){
+    uint16_t addr;
+    addr = 0;
+    //addr = read_bus(2);
+    cpu.PC += 2;
+    push(&cpu.PC);
+    cpu.PC = addr;
+}
+
+static void do_jmp_immi(){
+    uint16_t addr;
+    addr = 0;
+    //addr = read_bus(2);
+    cpu.PC = addr;
+}
+
+//handle the remaining instructions that don't really follow a set pattern
+static void handle_misc(byte opcode){
+    uint16_t addr; 
+    addr = 0;
+    int8_t rel_off;
+
+    switch(opcode){
+        case RET_NZ:
+            if(!cpu.FLAGS.Z) do_ret();
+            break;
+        case JNZ:
+            if(!cpu.FLAGS.Z) do_jmp_immi();
+            break;
+        case JMP:
+            if(!cpu.FLAGS.Z) do_jmp_immi();
+            break;
+        case CALL_NZ:
+            if(!cpu.FLAGS.Z) do_call();
+            break;
+        case RET_Z:
+            if(cpu.FLAGS.Z) do_ret();
+            break;
+        case RET:
+            do_ret();
+            break;
+        case JZ:
+            if(cpu.FLAGS.Z) do_jmp_immi();
+            break;
+        case CB_op:
+            LOG(INFO, "trigger special instruction set");
+            break;
+        case CALL_Z:
+            if(cpu.FLAGS.Z) do_call();
+            break;
+        case CALL:
+            do_call();
+            break;
+        case RET_NC:
+            if(!cpu.FLAGS.C) do_ret();
+            break;
+        case CALL_NC:
+            if(!cpu.FLAGS.C) do_call();
+            break;
+        case RET_C:
+            if(cpu.FLAGS.C) do_call();
+            break;
+        case RETI:
+            do_ret();
+            cpu.IME = 1;
+            break;
+        case CALL_C:
+            if(cpu.FLAGS.C) do_call();
+            break;
+        case STR_DIR_n:
+            //read_bus(1, PC);
+            cpu.PC++;
+            //write_bus(1, 0xFF00 + n, cpu.A);
+            break;
+        case STR_DIR:
+            cpu.PC++;
+            //write_bus(1, 0xFF00 + cpu.C, cpu.A);
+            break;
+        case LD_DIR_n:
+            //read_bus(1, PC);
+            cpu.PC++;
+            //write_bus(1, 0xFF00 + n, cpu.A);
+            break;
+        case LD_DIR:
+            cpu.PC++;
+            //write_bus(1, 0xFF00 + cpu.C, cpu.A);
+            break;
+        case ADD_SP: 
+            LOG(ERROR, "not yet finished");
+            //rel_off = read_bus(1, cpu.PC);
+            rel_off = 0;
+            cpu.PC += 1;
+            //be careful that the signed property is being transfered
+            addr = cpu.PC + rel_off;
+            //check_HC();
+            //check carry
+        case JMP_HL:
+            //addr = read_bus(2, cpu.HL);
+            cpu.PC = addr;
+            break;
+        case LD_MEM_A:
+            //addr = read_bus(2, cpu.HL);
+            cpu.PC += 2;            
+            //write_bus(addr, cpu.A);
+            break;
+        case LD_A_MEM:
+            //addr = read_bus(2, cpu.PC);
+            cpu.PC += 2;            
+            //cpu.A = read_bus(1, addr);
+            break;
+        case DI:
+            cpu.IME = 0;
+            break;
+        case EI:
+            cpu.IME = 1;
+            break;
+        case LD_HL_SP_e:
+            //rel_off = read_bus(1,cpu.PC);
+            rel_off = 0;
+            cpu.PC++;
+            cpu.HL = cpu.SP + rel_off;
+            //check_HC();
+            //check carry
+            break;
+        case LD_SP_HL:
+            cpu.SP = cpu.HL;
+            break;
+
+        default:
+            LOG(ERROR, "something went wrong");
+    }
+}
+
+
+void logic_arith_8bit(byte operation, uint8_t value){
+    uint8_t result;
+
+    switch(operation){ 
+        case ADD:
+            result = add(cpu.A, value);
+            cpu.A = result;
+            break;
+        case ADC:
+            value += cpu.FLAGS.C;
+            result = add(cpu.A, value);
+            cpu.A = result;
+            break;
+        case SUB:
+            result = sub(cpu.A, value);
+            cpu.A = result;
+            break;
+        case SBC:
+            value -= cpu.FLAGS.C;
+            result = sub(cpu.A, value);
+            cpu.A = result;
+            break;
+        case AND:
+            result = cpu.A & value;
+            cpu.FLAGS.HC = 1;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.C = 0;
+            cpu.A = result;
+            break;
+        case XOR:
+            result = cpu.A ^ value;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.C = 0;
+            cpu.A = result;
+            break;
+        case OR:
+            result = cpu.A | value;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.C = 0;
+            cpu.A = result;
+            break;
+        case CP: //same as sub but does not update A
+            result = sub(cpu.A, value);
+            break;
+    }
+    //ZF can be set at the end since the arithmetic is the same
+    if(result) cpu.FLAGS.Z = 0;
+    else cpu.FLAGS.Z = 1;
+    return;
+}
+
+
+static void control_flow(byte opcode){
+    byte op;
+    uint16_t* reg; 
+    get_16bit_register(opcode, 4, &reg);
+    op = opcode & 0xF;
+    if(op == POP){
+        pop(reg);
+    } else if (op == PUSH) {
+        push(reg);
+    } else if ((op & 7) == RST) {
+        LOG(ERROR, "Not implemented");
+    } else if ((op & 7) == IMMI_ARI) {
+        logic_arith_8bit(op & 7, cpu.bus->ROM_B0[cpu.PC++]);
+    } else {
+        handle_misc(opcode);
+    }
+    return;
+}
+
 //TODO think about running instructions in parrellel with Fetch/execute overlap
 //alternatively, I can also run in sequence, and code in the different stages later.
 //basically, I could try to fetch something every cycle, this would involve maintaining a transitional state 
@@ -91,6 +365,7 @@ static void single_reg_inst(byte opcode){
 //another thing I coudl do is the just estimate all the registers and grab the regardless of the instruction
 uint64_t exec(uint64_t ticks){
     byte opcode;
+    uint8_t* temp_reg;
 
     for(uint64_t i = 0; i < ticks; i++){
         opcode = cpu.bus->ROM_B0[cpu.PC];
@@ -98,7 +373,7 @@ uint64_t exec(uint64_t ticks){
 #ifdef DEBUG_CPU
         LOG(DEBUG,"---CPU contents---");
         LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
-        LOGF(DEBUG,"A: 0x%02x F:0x%02x",cpu.A,cpu.F);
+        LOGF(DEBUG,"AF: 0x%04x",cpu.AF);
         LOGF(DEBUG,"BC: 0x%04x",cpu.BC);
         LOGF(DEBUG,"DE: 0x%04x",cpu.DE);
         LOGF(DEBUG,"HL: 0x%04x",cpu.HL);
@@ -106,6 +381,9 @@ uint64_t exec(uint64_t ticks){
         LOGF(DEBUG,"PC: 0x%04x",cpu.SP);
         LOG(DEBUG,"------------------");
 #endif
+
+        //seperating the instructions into groups based on the top 2 bits.
+        //This allows me to use the same code to run some instructions
         switch(opcode >> 6){
             case 0:
                 single_reg_inst(opcode);
@@ -115,10 +393,12 @@ uint64_t exec(uint64_t ticks){
                 ld_rr(opcode);
                 break;
             case 2: //arithmetic and bitwise operations
-                cpu.D = cpu.C;
+                get_8bit_register(opcode, 0, &temp_reg);
+                logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
                 break;
             case 3: //control flow
-
+                control_flow(opcode);
+                break;
             default:
                 LOGF(ERROR,"unsupported instruction: 0x%x", opcode);
                 return 0;
@@ -183,37 +463,3 @@ static void ld_rr(byte opcode){
     get_8bit_register(opcode, 0, &src);
     *dest = *src;
 }
-
-//static void setZ(){
-//    cpu.AF |= 1<<7;
-//}
-//
-//static void clrZ(){
-//    cpu.AF &= ~(1<<7);
-//}
-//
-//static void setS(){
-//    cpu.AF |= 1<<6;
-//}
-//
-//static void clrS(){
-//    cpu.AF &= ~(1<<6);
-//}
-//
-////HC = half carry
-//static void setHC(){
-//    cpu.AF |= 1<<5;
-//}
-//
-//static void clrHC(){
-//    cpu.AF &= ~(1<<5);
-//}
-//
-////HC = half carry
-//static void setC(){
-//    cpu.AF |= 1<<4;
-//}
-//
-//static void clrC(){
-//    cpu.AF &= ~(1<<4);
-//}

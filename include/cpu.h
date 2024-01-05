@@ -18,7 +18,13 @@ typedef struct CPU_struct{
     union{
         uint16_t AF;
         struct {
-            uint8_t F;
+            struct{
+                unsigned Z: 1;
+                unsigned N: 1;
+                unsigned HC: 1;
+                unsigned C: 1;
+                unsigned unused: 4;
+            }FLAGS;
             uint8_t A;
         };
     };
@@ -55,16 +61,5 @@ CPU_t* init(address entry, main_bus_t* bus);
 void reset();
 
 uint64_t exec(uint64_t ticks);
-static void ld_rr(byte opcode);
-static void ld_8bit_immi(byte opcode);
-static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
-static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
-//static void setZ();
-//static void clrZ();
-//static void setS();
-//static void clrS();
-//static void setHC();
-//static void clrHC();
-//static void setC();
-//static void clrC();
+
 #endif
