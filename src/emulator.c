@@ -3,7 +3,7 @@
 
 static void cleanup(){
     LOG(INFO, "cleanup");
-    release_bus(&emu.bus);  
+    release_bus(emu.main_bus);  
     exit(0);
 }
 
@@ -12,8 +12,8 @@ void create_emulator(char* filename){
     bool is_CGB;
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
-    create_bus(&emu.bus, emu.cart.num_ROM, emu.cart.val_RAM, is_CGB);
-    emu.cpu = init(emu.cart.entry, &emu.bus);
+    emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB);
+    emu.cpu = init(emu.cart.entry, emu.main_bus);
     emu.running = true;
     return;
 }

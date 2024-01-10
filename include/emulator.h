@@ -9,7 +9,7 @@
 
 typedef struct emulator_struct{
     CPU_t* cpu;
-    main_bus_t bus;
+    main_bus_t *main_bus;
     PPU_t PPU;
     cart_t cart;
     bool running;

@@ -6,22 +6,23 @@
 
 //filled during mapper creation. mapper will handle swapping
 typedef struct main_bus_struct {
-    uint8_t* ROM_B0;
-    uint8_t* ROM_BN; //switchable rom bank
-    uint8_t* VRAM;
-    uint8_t* EXRAM;
-    uint8_t* WRAM_B0;
-    uint8_t* WRAM_BN; //CGB switchable 1-7
-    uint8_t* OAM;
-    uint8_t* HRAM;
+    byte* ROM_B0;
+    byte* ROM_BN; //switchable rom bank
+    byte* VRAM;
+    byte* EXRAM;
+    byte* WRAM_B0;
+    byte* WRAM_BN; //CGB switchable 1-7
+    byte* OAM;
+    byte* HRAM;
     mapper_t* mapper;
-    uint8_t  IE;
+    byte  IE;
 }main_bus_t;
 
+static main_bus_t* bus;
 
-void create_bus(main_bus_t* bus, uint8_t num_ROM, uint8_t val_RAM, bool is_CGB);
+main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB);
 void release_bus(main_bus_t* bus);
-uint8_t read(uint16_t addr);
-uint8_t writeBus(uint16_t addr);
+byte read_bus(address addr);
+void write_bus(address addr, byte chr);
 
 #endif

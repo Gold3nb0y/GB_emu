@@ -1,6 +1,7 @@
 #ifndef CART_H
 #define CART_H
 #include "common.h"
+#include "mapper.h"
 #include <stdint.h>
 
 //sourced from https://gbdev.io/pandocs/The_Cartridge_Header.html
@@ -21,6 +22,37 @@ typedef struct cart_struct{
     uint8_t header_checksum;
     uint16_t global_checksum;
 } cart_t;
+
+enum cart_types{
+ROM_ONLY,
+MBC1,
+MBC1_RAM,
+MBC1_RAM_BATTERY,
+MBC2,
+MBC2_BATTERY,
+ROM_RAM,
+ROM_RAM_BATTERY,
+MMM01,
+MMM01_RAM,
+MMM01_RAM_BATTERY,
+MBC3_TIMER_BATTERY,
+MBC3_TIMER_RAM_BATTERY,
+MBC3,
+MBC3_RAM,
+MBC3_RAM_BATTERY,
+MBC5 = 0x19,
+MBC5_RAM,
+MBC5_RAM_BATTERY,
+MBC5_RUMBLE,
+MBC5_RUMBLE_RAM,
+MBC5_RUMBLE_RAM_BATTERY,
+MBC6 = 0x20,
+MBC7_SENSOR_RUMBLE_RAM_BATTERY = 0x22,
+POCKET_CAMERA = 0xFC,
+BANDAI_TAMA5,
+HuC3,
+HuC1_RAM_BATTERY
+};
 
 //read the header and s
 void load_cart(cart_t* cart, char* filename);

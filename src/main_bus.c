@@ -21,11 +21,11 @@ static uint8_t parse_ram(uint8_t header_val){
 }
 
 /*
- * bus: pointer to the address of bus from within the emulator struct
  * num_ROM: the value containing the num of ROM sections in the cartridge
  * val_RAM: value to be parsed into WorkerRam and VRAM chunks
  */
-void create_bus(main_bus_t* bus, uint8_t num_ROM, uint8_t val_RAM, bool is_CGB){
+main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB){
+    bus = malloc(sizeof(main_bus_t));
     uint8_t num_VRAM, num_EXRAM, num_WRAM;
     if(is_CGB){
         num_VRAM = 2;
@@ -50,6 +50,7 @@ void create_bus(main_bus_t* bus, uint8_t num_ROM, uint8_t val_RAM, bool is_CGB){
     bus->OAM = Malloc(0xa0);
     bus->HRAM = Malloc(0x7F);
     bus->IE = 0xff; //still not sure of the init value
+    return bus;
 }
 
 void release_bus(main_bus_t* bus){
@@ -58,64 +59,19 @@ void release_bus(main_bus_t* bus){
     free(bus->OAM);
     free(bus->HRAM);
     memset(bus, 0, sizeof(main_bus_t));
+    free(bus);
     return;
 }
 
-uint8_t readBus(uint16_t addr){
-    uint8_t ret = 0;
-    if(addr < 0x4000){ //rom bank 00
-        ;
-    } else if (addr < 0x8000) { //rom bank 01, swichable via mapper
-        ;
-    } else if (addr < 0xA000) { //vram, switchable if CGB
-        ;
-    } else if (addr < 0xC000) { //external RAM
-        ;
-    } else if (addr < 0xD000) { //work RAM
-        ;
-    } else if (addr < 0xE000) { //work RAM2, switchable in CGB
-        ;
-    } else if (addr < 0xFE00) { //RAM mirror
-        ;
-    } else if (addr < 0xFEA0) { //Object attribue memory
-        ;
-    } else if (addr < 0xFF00) { //unusable
-        ;
-    } else if (addr < 0xFF80) { //i/o registers
-        ;
-    } else if (addr < 0xFFFF) { //high ram
-        ;
-    } else if (addr == 0xFFFF) { //Interupt enable register
-        ;
-    }
+//trigger any special addresses and if there are none read from mapper
+byte read_bus(address addr){
+    byte ret;
+    ret = bus->mapper->read(addr);
     return ret;
 }
 
-uint8_t writeBus(uint16_t addr){
-    if(addr < 0x4000){ //rom bank 00
-        ;
-    } else if (addr < 0x8000) { //rom bank 01, swichable via mapper
-        ;
-    } else if (addr < 0xA000) { //vram, switchable if CGB
-        ;
-    } else if (addr < 0xC000) { //external RAM
-        ;
-    } else if (addr < 0xD000) { //work RAM
-        ;
-    } else if (addr < 0xE000) { //work RAM2, switchable in CGB
-        ;
-    } else if (addr < 0xFE00) { //RAM mirror
-        ;
-    } else if (addr < 0xFEA0) { //Object attribue memory
-        ;
-    } else if (addr < 0xFF00) { //unusable
-        ;
-    } else if (addr < 0xFF80) { //i/o registers
-        ;
-    } else if (addr < 0xFFFF) { //high ram
-        ;
-    } else if (addr == 0xFFFF) { //Interupt enable register
-        ;
-    }
-    return 0;
+void write_bus(address addr, byte chr){
+    //the mapper will take control entirely at this point
+    bus->mapper->write(addr, chr);
+    return;
 }

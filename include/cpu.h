@@ -7,9 +7,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-typedef uint16_t address;
-typedef uint8_t byte;
-
 #define DEBUG_CPU
 
 //note to self since cpu uses the main bus, I can not use the CPU inside of main bus
