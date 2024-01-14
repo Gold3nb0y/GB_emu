@@ -9,6 +9,8 @@ static void ld_rr(byte opcode);
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
 
+static uint8_t tmp_reg;
+
 //TODO I may need to implement a read byte and a read word. there are a few times where I have to read a word instead of a byte
 
 //for arithmetic and logic
@@ -136,34 +138,36 @@ static uint8_t sub(byte v1, byte v2){
     return result;
 }
 
-static void push(uint16_t* reg){
+//push does not take a refrence to anything, as there should be no need to write
+static void push(uint16_t reg){
     //need to do the writing still
+    write_bus_addr(cpu.PC, reg);
     cpu.SP -= 2;
 }
 
 static void pop(uint16_t* reg){
-    //need to do the reading still
+    *reg = read_bus_addr(cpu.SP);
     cpu.SP += 2;
 }
 
 static void do_ret(){
-    //cpu.PC = read_bus(cpu->bus);
-    pop(&cpu.PC);
+    //cpu.PC = read_bus_addr(cpu.SP);
+    pop(&cpu.PC); //should just be the same as popping a regular register
 }
 
 static void do_call(){
     uint16_t addr;
     addr = 0;
-    //addr = read_bus(2);
+    addr = read_bus_addr(cpu.PC);
     cpu.PC += 2;
-    push(&cpu.PC);
+    push(cpu.PC);
     cpu.PC = addr;
 }
 
 static void do_jmp_immi(){
     uint16_t addr;
     addr = 0;
-    //addr = read_bus(2);
+    addr = read_bus_addr(cpu.PC);
     cpu.PC = addr;
 }
 
@@ -172,6 +176,7 @@ static void handle_misc(byte opcode){
     uint16_t addr; 
     addr = 0;
     int8_t rel_off;
+    byte n;
 
     switch(opcode){
         case RET_NZ:
@@ -221,45 +226,43 @@ static void handle_misc(byte opcode){
             if(cpu.FLAGS.C) do_call();
             break;
         case STR_DIR_n:
-            //read_bus(1, PC);
+            n = read_bus(cpu.PC);
             cpu.PC++;
-            //write_bus(1, 0xFF00 + n, cpu.A);
+            write_bus(0xFF00 + n, cpu.A);
             break;
         case STR_DIR:
-            cpu.PC++;
-            //write_bus(1, 0xFF00 + cpu.C, cpu.A);
+            write_bus(0xFF00 + cpu.C, cpu.A);
             break;
         case LD_DIR_n:
-            //read_bus(1, PC);
+            n = read_bus(cpu.PC);
             cpu.PC++;
-            //write_bus(1, 0xFF00 + n, cpu.A);
+            write_bus(0xFF00 + n, cpu.A);
             break;
         case LD_DIR:
-            cpu.PC++;
-            //write_bus(1, 0xFF00 + cpu.C, cpu.A);
+            write_bus(0xFF00 + cpu.C, cpu.A);
             break;
         case ADD_SP: 
-            LOG(ERROR, "not yet finished");
-            //rel_off = read_bus(1, cpu.PC);
-            rel_off = 0;
+            rel_off = read_bus(cpu.PC);
             cpu.PC += 1;
             //be careful that the signed property is being transfered
-            addr = cpu.PC + rel_off;
+            addr = cpu.SP + rel_off;
+            //not sure how to check the half carry
             //check_HC();
             //check carry
         case JMP_HL:
-            //addr = read_bus(2, cpu.HL);
+            addr = read_bus_addr(cpu.HL);
             cpu.PC = addr;
             break;
         case LD_MEM_A:
-            //addr = read_bus(2, cpu.HL);
+            LOG(ERROR, "NOT YET IMPLEMENTED");
+            addr = read_bus_addr(cpu.PC);
             cpu.PC += 2;            
-            //write_bus(addr, cpu.A);
+            write_bus(addr, cpu.A);
             break;
         case LD_A_MEM:
-            //addr = read_bus(2, cpu.PC);
+            addr = read_bus_addr(cpu.PC);
             cpu.PC += 2;            
-            //cpu.A = read_bus(1, addr);
+            cpu.A = read_bus(addr);
             break;
         case DI:
             cpu.IME = 0;
@@ -268,8 +271,7 @@ static void handle_misc(byte opcode){
             cpu.IME = 1;
             break;
         case LD_HL_SP_e:
-            //rel_off = read_bus(1,cpu.PC);
-            rel_off = 0;
+            rel_off = read_bus(cpu.PC);
             cpu.PC++;
             cpu.HL = cpu.SP + rel_off;
             //check_HC();
@@ -347,7 +349,7 @@ static void control_flow(byte opcode){
     if(op == POP){
         pop(reg);
     } else if (op == PUSH) {
-        push(reg);
+        push(*reg);
     } else if ((op & 7) == RST) {
         LOG(ERROR, "Not implemented");
     } else if ((op & 7) == IMMI_ARI) {
@@ -428,12 +430,14 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
         case 5:
             *reg = &cpu.L;
             break;
+        case 6:
+            tmp_reg = read_bus(cpu.HL);
+            *reg = &tmp_reg;
         case 7:
             *reg = &cpu.A;
             break;
         default:
-            //plan is to return a refrence to the memory address
-            LOG(ERROR, "memory addressing not yet implemented");
+            LOG(ERROR, "something unexpected happened");
             break;
     }
 }

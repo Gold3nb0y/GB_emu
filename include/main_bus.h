@@ -24,5 +24,7 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB);
 void release_bus(main_bus_t* bus);
 byte read_bus(address addr);
 void write_bus(address addr, byte chr);
+address read_bus_addr(address addr);
+void write_bus_addr(address dest, address addr);
 
 #endif
