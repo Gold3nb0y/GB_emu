@@ -62,49 +62,6 @@ CPU_t* init(address entry, main_bus_t* bus){
     return &cpu;
 }
 
-//handle instructions that only use 1 register
-static void single_reg_inst(byte opcode){
-    uint16_t *temp_reg16;
-    uint8_t *temp_reg8;
-
-    switch (opcode & 0xf) {
-        case 1: //ld 16 bit constant
-            get_16bit_register(opcode, 4, &temp_reg16);
-            memcpy(temp_reg16, &cpu.bus->ROM_B0[cpu.PC], 2); 
-            cpu.PC += 2;
-            break;
-        case 3: //inc 16 bit reg
-            get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 += 1;
-            break;
-        case 9: //sum reg into HL
-            get_16bit_register(opcode, 4, &temp_reg16);
-            cpu.HL += *temp_reg16;
-        case 0xB: //dec 16 bit reg
-            get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 -= 1;
-            break;
-        case 4: //inc 8bit reg
-        case 0xC:
-            get_8bit_register(opcode, 3, &temp_reg8);
-            *temp_reg8 += 1;
-            break;
-        case 5: //dec 8bit register
-        case 0xD:
-            get_8bit_register(opcode, 3, &temp_reg8);
-            *temp_reg8 -= 1;
-            break;
-        case 6:  //ld 8 bit register immidiate
-        case 0xE:
-            get_8bit_register(opcode, 3, &temp_reg8);
-            *temp_reg8 = cpu.bus->ROM_B0[cpu.PC]; //replace with read soon
-            cpu.PC++;
-            break;
-        default:
-            LOG(ERROR, "Not implemented");
-    }
-}
-
 static void check_HC_add(uint8_t val1, uint8_t val2){
     uint8_t chk;
     chk = val1 & 0xf + val2 & 0xf;
@@ -118,6 +75,17 @@ static void check_HC_sub(uint8_t val1, uint8_t val2){
     if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 5th bit of val1 was borrowed
     else cpu.FLAGS.HC = 1;
 }
+
+//handle instructions that only use 1 register
+//I should really combine this with handle misc
+static void single_reg_inst(byte opcode){
+
+    switch (opcode) {
+        default:
+            LOG(ERROR, "Not implemented");
+    }
+}
+
 
 static uint8_t add(byte v1, byte v2){
     uint8_t result;
@@ -170,14 +138,129 @@ static void do_jmp_immi(){
     cpu.PC = addr;
 }
 
-//handle the remaining instructions that don't really follow a set pattern
-static void handle_misc(byte opcode){
+//handle the remaining instructions that are easier to handle individually
+static void basic_instr(byte opcode){
+    uint16_t *temp_reg16;
+    uint8_t *temp_reg8;
     uint16_t addr; 
-    addr = 0;
+    byte tmp_byte;
     int8_t rel_off;
-    byte n;
+    tmp_byte = addr = 0;
 
     switch(opcode){
+        case NOP: //NOP
+            break;
+        case LD_BC: 
+        case LD_DE: 
+        case LD_HL: 
+        case LD_SP: 
+            get_16bit_register(opcode, 4, &temp_reg16);
+            memcpy(temp_reg16, &cpu.bus->ROM_B0[cpu.PC], 2); 
+            cpu.PC += 2;
+            break;
+        case STR_BC:
+        case STR_DE:
+        case STRI_HL:
+        case STRD_HL:
+            get_16bit_register(opcode, 4, &temp_reg16);
+            if(opcode & 0x30) 
+                temp_reg16 = &cpu.HL;
+            write_bus(*temp_reg16, cpu.A);
+            if(opcode == STRD_HL)
+                cpu.HL--;
+            else if(opcode == STRI_HL)
+                cpu.HL++;
+            break;
+        case INC_BC: 
+        case INC_DE: 
+        case INC_HL: 
+        case INC_SP: 
+            get_16bit_register(opcode, 4, &temp_reg16);
+            *temp_reg16 += 1;
+            break;
+        case ADD_HL_BC: 
+        case ADD_HL_DE: 
+        case ADD_HL_HL: 
+        case ADD_HL_SP: //sum reg into HL
+            get_16bit_register(opcode, 4, &temp_reg16);
+            cpu.FLAGS.N = 0;
+            check_HC_add(cpu.HL, *temp_reg16);
+            cpu.HL += *temp_reg16;
+            cpu.FLAGS.Z = !cpu.HL;
+            break;
+        case LD_A_BC:
+        case LD_A_DE:
+        case LDI_A_HL:
+        case LDD_A_HL: //load memory value into a
+            get_16bit_register(opcode, 4, &temp_reg16);
+            if(opcode & 0x30) 
+                temp_reg16 = &cpu.HL;
+            cpu.A = read_bus(*temp_reg16);
+            if(opcode == LDD_A_HL)
+                cpu.HL--;
+            else if(opcode == LDI_A_HL)
+                cpu.HL++;
+        case DEC_BC: 
+        case DEC_DE: 
+        case DEC_HL: 
+        case DEC_SP: //dec 16 bit reg
+            get_16bit_register(opcode, 4, &temp_reg16);
+            *temp_reg16 -= 1;
+            break;
+        case INC_A:
+        case INC_B:
+        case INC_C:
+        case INC_D:
+        case INC_E:
+        case INC_H:
+        case INC_L:
+            get_8bit_register(opcode, 3, &temp_reg8);
+            cpu.FLAGS.N = 0;
+            check_HC_add(*temp_reg8, 1);
+            *temp_reg8 += 1;
+            cpu.FLAGS.Z = !(*temp_reg8);
+            break;
+        case INC_MEM: //read write addr so handle seperatly
+            tmp_byte = read_bus(cpu.HL);
+            cpu.FLAGS.N = 0;
+            check_HC_add(tmp_byte, 1);
+            cpu.FLAGS.Z = !tmp_byte;
+            write_bus(cpu.HL, tmp_byte++);
+            break;
+        case DEC_A: 
+        case DEC_B: 
+        case DEC_C: 
+        case DEC_D: 
+        case DEC_E: 
+        case DEC_H: 
+        case DEC_L: //dec 8bit register
+            get_8bit_register(opcode, 3, &temp_reg8);
+            check_HC_sub(*temp_reg8, 1);
+            *temp_reg8 -= 1;
+            cpu.FLAGS.Z = !(*temp_reg8);
+            break;
+        case DEC_MEM:
+            tmp_byte = read_bus(cpu.HL);
+            check_HC_sub(tmp_byte, 1);
+            write_bus(cpu.HL, tmp_byte--);
+            cpu.FLAGS.Z = !tmp_byte;
+            break;
+        case LD_A:  
+        case LD_B:  
+        case LD_C:  
+        case LD_D:  
+        case LD_E:  
+        case LD_H:  
+        case LD_L:  //ld 8 bit register immidiate
+            get_8bit_register(opcode, 3, &temp_reg8);
+            *temp_reg8 = read_bus(cpu.PC); //replace with read soon
+            cpu.PC++;
+            break;
+        case LD_MEM:
+            tmp_byte = read_bus(cpu.PC);
+            cpu.PC++;
+            write_bus(cpu.HL, tmp_byte);
+            break;
         case RET_NZ:
             if(!cpu.FLAGS.Z) do_ret();
             break;
@@ -225,17 +308,17 @@ static void handle_misc(byte opcode){
             if(cpu.FLAGS.C) do_call();
             break;
         case STR_DIR_n:
-            n = read_bus(cpu.PC);
+            tmp_byte = read_bus(cpu.PC);
             cpu.PC++;
-            write_bus(0xFF00 + n, cpu.A);
+            write_bus(0xFF00 + tmp_byte, cpu.A);
             break;
         case STR_DIR:
             write_bus(0xFF00 + cpu.C, cpu.A);
             break;
         case LD_DIR_n:
-            n = read_bus(cpu.PC);
+            tmp_byte = read_bus(cpu.PC);
             cpu.PC++;
-            write_bus(0xFF00 + n, cpu.A);
+            write_bus(0xFF00 + tmp_byte, cpu.A);
             break;
         case LD_DIR:
             write_bus(0xFF00 + cpu.C, cpu.A);
@@ -334,8 +417,7 @@ void logic_arith_8bit(byte operation, uint8_t value){
             break;
     }
     //ZF can be set at the end since the arithmetic is the same
-    if(result) cpu.FLAGS.Z = 0;
-    else cpu.FLAGS.Z = 1;
+    cpu.FLAGS.Z = !result; //assign to 1 or 0 depending on weather or not the value was set
     return;
 }
 
@@ -352,9 +434,10 @@ static void control_flow(byte opcode){
     } else if ((op & 7) == RST) {
         LOG(ERROR, "Not implemented");
     } else if ((op & 7) == IMMI_ARI) {
-        logic_arith_8bit(op & 7, cpu.bus->ROM_B0[cpu.PC++]);
+        logic_arith_8bit(op & 7, read_bus(cpu.PC));
+        cpu.PC++;
     } else {
-        handle_misc(opcode);
+        basic_instr(opcode);
     }
     return;
 }
@@ -386,8 +469,8 @@ uint64_t exec(uint64_t ticks){
         //seperating the instructions into groups based on the top 2 bits.
         //This allows me to use the same code to run some instructions
         switch(opcode >> 6){
-            case 0:
-                single_reg_inst(opcode);
+            case 0: //basic instructions
+                basic_instr(opcode);
                 break;
             case 1: //register loads
                 if(opcode == HALT) return 0; //stop the system clock
@@ -397,7 +480,7 @@ uint64_t exec(uint64_t ticks){
                 get_8bit_register(opcode, 0, &temp_reg);
                 logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
                 break;
-            case 3: //control flow
+            case 3: //control flow, can filter some out so I figure it's worth it may change later
                 control_flow(opcode);
                 break;
             default:
@@ -408,52 +491,68 @@ uint64_t exec(uint64_t ticks){
     return ticks;
 }
 
+enum REGS_8 {
+    B = 0,
+    C,
+    D,
+    E,
+    H,
+    L,
+    MEM,
+    A
+};
+
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
+//this can only be used for reading with case MEM
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
     switch(opcode >> offset & 0x7){
-        case 0:
+        case B:
             *reg = &cpu.B;
             break;
-        case 1:
+        case C:
             *reg = &cpu.C;
             break;
-        case 2:
+        case D:
             *reg = &cpu.D;
             break;
-        case 3:
+        case E:
             *reg = &cpu.E;
             break;
-        case 4:
+        case H:
             *reg = &cpu.H;
             break;
-        case 5:
+        case L:
             *reg = &cpu.L;
             break;
-        case 6:
+        case MEM:
             tmp_reg = read_bus(cpu.HL);
             *reg = &tmp_reg;
-        case 7:
+        case A:
             *reg = &cpu.A;
-            break;
-        default:
-            LOG(ERROR, "something unexpected happened");
             break;
     }
 }
 
+enum REGS_16 {
+    BC = 0,
+    DE,
+    HL,
+    SP,
+};
+
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){
     switch(opcode >> offset & 0x3){
-        case 0:
+        case BC:
             *reg = &cpu.BC;
             break;
-        case 1:
+        case DE:
             *reg = &cpu.DE;
             break;
-        case 2:
+        case HL:
             *reg = &cpu.HL;
             break;
-        case 3:
+        case SP:
             *reg = &cpu.SP;
             break;
     }
