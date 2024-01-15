@@ -28,7 +28,11 @@ typedef struct mapper_struct{
     byte cur_VRAM;
     byte cur_EXRAM;
     byte cur_WRAM;
+<<<<<<< HEAD
     union __attribute__((aligned(16))) {
+=======
+    union{
+>>>>>>> origin/master
         struct {
             bool RAM_enabled;
             struct {

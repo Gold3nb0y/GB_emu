@@ -70,6 +70,7 @@ byte read_bus(address addr){
     return ret;
 }
 
+<<<<<<< HEAD
 address read_bus_addr(address addr){
     address ret;
     ret = bus->mapper->read(addr) << 8;
@@ -77,11 +78,14 @@ address read_bus_addr(address addr){
     return ret;
 }
 
+=======
+>>>>>>> origin/master
 void write_bus(address addr, byte chr){
     //the mapper will take control entirely at this point
     bus->mapper->write(addr, chr);
     return;
 }
+<<<<<<< HEAD
 
 void write_bus_addr(address dest, address addr){
     //the mapper will take control entirely at this point
@@ -89,3 +93,5 @@ void write_bus_addr(address dest, address addr){
     bus->mapper->write(dest+1, addr & 0xff);
     return;
 }
+=======
+>>>>>>> origin/master
