@@ -257,10 +257,81 @@ static void basic_instr(byte opcode){
             cpu.PC++;
             break;
         case LD_MEM:
-            tmp_byte = read_bus(cpu.PC);
-            cpu.PC++;
+            tmp_byte = read_bus(cpu.PC++);
             write_bus(cpu.HL, tmp_byte);
             break;
+        case RLCA:
+            tmp_byte = cpu.A; 
+            cpu.A <<= 1;
+            cpu.FLAGS.C = tmp_byte >> 7;
+            cpu.A |= cpu.FLAGS.C;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RLA:
+            tmp_byte = cpu.A; 
+            cpu.A <<= 1;
+            cpu.A |= cpu.FLAGS.C;
+            cpu.FLAGS.C = cpu.A >> 7;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RRCA:
+            tmp_byte = cpu.A;
+            cpu.A >>= 1;
+            cpu.A |= tmp_byte << 7;
+            cpu.FLAGS.C = tmp_byte & 1;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RRA:
+            tmp_byte = cpu.A;
+            cpu.A >>= 1;
+            cpu.A |= cpu.FLAGS.C << 7;
+            cpu.FLAGS.C = tmp_byte & 1;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case CPL:
+            cpu.A = ~cpu.A;
+            cpu.FLAGS.N = 1;     
+            cpu.FLAGS.HC = 1;     
+            break;
+        case DAA:
+            LOG(ERROR, "Unsure how to implement");
+            break;
+        case CCF:
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.C = ~cpu.FLAGS.C;
+            break;
+        case SCF:
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.C = 1;
+            break;
+        case JR:
+            rel_off = read_bus(cpu.PC++);
+            cpu.PC += rel_off;
+            break;
+        case JR_NZ:
+            rel_off = read_bus(cpu.PC++);
+            if(!cpu.FLAGS.Z) cpu.PC += rel_off;
+            break;
+        case JR_Z:
+            rel_off = read_bus(cpu.PC++);
+            if(cpu.FLAGS.Z) cpu.PC += rel_off;
+            break;
+        case JR_NC:
+            rel_off = read_bus(cpu.PC++);
+            if(!cpu.FLAGS.C) cpu.PC += rel_off;
+        case JR_C:
+            rel_off = read_bus(cpu.PC++);
+            if(cpu.FLAGS.C) cpu.PC += rel_off;
         case RET_NZ:
             if(!cpu.FLAGS.Z) do_ret();
             break;
