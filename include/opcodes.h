@@ -205,7 +205,7 @@ enum opcodes{
     RET_Z,
     RET,
     JZ,
-    CB_op,
+    CB_PREFIX,
     CALL_Z,
     CALL,
     ADC_N,
@@ -248,5 +248,20 @@ enum opcodes{
     CP_n = 0xFE,
     RST_38
 };
+
+enum prefixed_opcodes{
+    RLC = 0,
+    RRC,
+    RL,
+    RR,
+    SLA,
+    SRA,
+    SWAP,
+    SRL
+};
+
+#define BIT 0x40
+#define RES 0x80
+#define SET 0xC0
 
 #endif

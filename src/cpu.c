@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "common.h"
+#include "log.h"
 #include "main_bus.h"
 #include "mapper.h"
 #include <stdint.h>
@@ -8,8 +9,6 @@
 static void ld_rr(byte opcode);
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
-
-static uint8_t tmp_reg;
 
 //TODO I may need to implement a read byte and a read word. there are a few times where I have to read a word instead of a byte
 
@@ -76,17 +75,6 @@ static void check_HC_sub(uint8_t val1, uint8_t val2){
     else cpu.FLAGS.HC = 1;
 }
 
-//handle instructions that only use 1 register
-//I should really combine this with handle misc
-static void single_reg_inst(byte opcode){
-
-    switch (opcode) {
-        default:
-            LOG(ERROR, "Not implemented");
-    }
-}
-
-
 static uint8_t add(byte v1, byte v2){
     uint8_t result;
     result = v1 + v2;
@@ -136,6 +124,101 @@ static void do_jmp_immi(){
     addr = 0;
     addr = read_bus_addr(cpu.PC);
     cpu.PC = addr;
+}
+
+static void prefixed_instr(){
+    byte opcode = read_bus(cpu.PC++);
+    uint8_t *reg;
+    uint8_t bit;
+    uint8_t mem_val;
+    uint8_t tmp_reg;
+
+    get_8bit_register(opcode, 0, &reg);
+    //potential way to handle the writeback for this addr
+    if(!reg){
+        mem_val = read_bus(cpu.HL);
+        reg = &mem_val;
+    }
+    switch(opcode >> 3){
+        case RLC:
+            tmp_reg = *reg; 
+            *reg <<= 1;
+            cpu.FLAGS.C = tmp_reg >> 7;
+            *reg |= cpu.FLAGS.C;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RL:
+            tmp_reg = *reg; 
+            *reg <<= 1;
+            *reg |= cpu.FLAGS.C;
+            cpu.FLAGS.C = tmp_reg >> 7;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RRC:
+            tmp_reg = *reg;
+            *reg >>= 1;
+            *reg |= tmp_reg << 7;
+            cpu.FLAGS.C = tmp_reg & 1;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case RR:
+            tmp_reg = *reg;
+            *reg >>= 1;
+            *reg |= cpu.FLAGS.C << 7;
+            cpu.FLAGS.C = tmp_reg & 1;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.Z = 0;
+            break;
+        case SLA:
+            cpu.FLAGS.C = *reg >> 7;
+            *reg <<= 1;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.Z = *reg ? 1 : 0;
+        case SRA:
+            cpu.FLAGS.C = *reg & 1;
+            *reg >>= 1;
+            *reg |= ((*reg >> 6) & 1) << 7; //set msb to old msb
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.Z = *reg ? 1 : 0;
+        case SWAP:
+            tmp_reg = *reg >> 4;
+            *reg <<= 4;
+            *reg |= tmp_reg;
+        case SRL:
+            cpu.FLAGS.C = *reg & 1;
+            *reg >>= 1;
+            *reg &= ~(1 << 7); //unset msb
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.Z = *reg ? 1 : 0;
+        default:
+            bit = (opcode >> 3) & 7;
+            if(opcode >= BIT && opcode < RES){
+                cpu.FLAGS.Z = *reg & 1 << bit ? 0 : 1;
+                cpu.FLAGS.N = 0;
+                cpu.FLAGS.HC = 1;
+            } else if(opcode >= RES && opcode < SET){
+                *reg &= ~(1 << bit);
+            } else if (opcode >= SET) {
+                *reg |= 1 << bit;
+            } else {
+                LOG(ERROR, "enexpected prefixed opcode")
+            }
+            break;
+    }
+    //writeback the manipulated value
+    if(reg == &mem_val)
+        write_bus(cpu.HL, mem_val);
+    
 }
 
 //handle the remaining instructions that are easier to handle individually
@@ -353,8 +436,8 @@ static void basic_instr(byte opcode){
         case JZ:
             if(cpu.FLAGS.Z) do_jmp_immi();
             break;
-        case CB_op:
-            LOG(INFO, "trigger special instruction set");
+        case CB_PREFIX:
+            prefixed_instr();
             break;
         case CALL_Z:
             if(cpu.FLAGS.Z) do_call();
@@ -549,6 +632,8 @@ uint64_t exec(uint64_t ticks){
                 break;
             case 2: //arithmetic and bitwise operations
                 get_8bit_register(opcode, 0, &temp_reg);
+                if(!temp_reg)
+                    *temp_reg = read_bus(cpu.HL);
                 logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
                 break;
             case 3: //control flow, can filter some out so I figure it's worth it may change later
@@ -596,8 +681,7 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
             *reg = &cpu.L;
             break;
         case MEM:
-            tmp_reg = read_bus(cpu.HL);
-            *reg = &tmp_reg;
+            *reg = 0;
         case A:
             *reg = &cpu.A;
             break;
