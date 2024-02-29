@@ -12,7 +12,8 @@ void create_emulator(char* filename){
     bool is_CGB;
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
-    emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB);
+    emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
+    select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
     emu.cpu = init(emu.cart.entry, emu.main_bus);
     emu.running = true;
     return;
@@ -25,6 +26,8 @@ void run(){
     while(emu.running){
         if((ticked = exec(4)) == 0) emu.running = false; //trigger cpu
         ticks += ticked;
+        if(ticks > 0x10)
+            break;
     }
     cleanup();
 }

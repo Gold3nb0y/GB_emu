@@ -24,7 +24,7 @@ static uint8_t parse_ram(uint8_t header_val){
  * num_ROM: the value containing the num of ROM sections in the cartridge
  * val_RAM: value to be parsed into WorkerRam and VRAM chunks
  */
-main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB){
+main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* filename){
     bus = malloc(sizeof(main_bus_t));
     uint8_t num_VRAM, num_EXRAM, num_WRAM;
     if(is_CGB){
@@ -35,7 +35,7 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB){
         num_WRAM = 2;
     }
     num_EXRAM = parse_ram(val_RAM);
-    bus->mapper = create_mapper(num_ROM, num_VRAM, num_EXRAM, num_WRAM); 
+    bus->mapper = create_mapper(num_ROM, num_VRAM, num_EXRAM, num_WRAM, filename); 
     //init values for the bus, later I may want to place these inside of the mapper, but not sure yet
     bus->ROM_B0 = bus->mapper->ROM_banks[0];
     bus->ROM_BN = bus->mapper->ROM_banks[1];

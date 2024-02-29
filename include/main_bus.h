@@ -20,7 +20,7 @@ typedef struct main_bus_struct {
 
 static main_bus_t* bus;
 
-main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB);
+main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* filename);
 void release_bus(main_bus_t* bus);
 byte read_bus(address addr);
 void write_bus(address addr, byte chr);

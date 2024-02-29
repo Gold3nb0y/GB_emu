@@ -49,12 +49,12 @@ static void patch(){
 
 CPU_t* init(address entry, main_bus_t* bus){
     memset(&cpu, 0, sizeof(CPU_t));
-    cpu.SP = 0x100;
-    cpu.PC = entry;
+    cpu.SP = 0xFFFE;
+    cpu.PC = 0x100;
     cpu.bus = bus;
 
 #ifdef DEBUG_CPU
-    patch();
+    //patch();
 #endif
 
     //give the emulator a refrence to the CPU
@@ -606,17 +606,16 @@ uint64_t exec(uint64_t ticks){
     uint8_t* temp_reg;
 
     for(uint64_t i = 0; i < ticks; i++){
-        opcode = cpu.bus->ROM_B0[cpu.PC];
-        cpu.PC++;
+        opcode = read_bus(cpu.PC++);
 #ifdef DEBUG_CPU
         LOG(DEBUG,"---CPU contents---");
         LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
+        LOGF(DEBUG,"PC: 0x%04x",cpu.PC);
         LOGF(DEBUG,"AF: 0x%04x",cpu.AF);
         LOGF(DEBUG,"BC: 0x%04x",cpu.BC);
         LOGF(DEBUG,"DE: 0x%04x",cpu.DE);
         LOGF(DEBUG,"HL: 0x%04x",cpu.HL);
-        LOGF(DEBUG,"PC: 0x%04x",cpu.PC);
-        LOGF(DEBUG,"PC: 0x%04x",cpu.SP);
+        LOGF(DEBUG,"SP: 0x%04x",cpu.SP);
         LOG(DEBUG,"------------------");
 #endif
 

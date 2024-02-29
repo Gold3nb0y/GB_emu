@@ -1,5 +1,7 @@
 #include "mapper.h"
 #include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 static void map_region(uint8_t** bank, size_t size, uint8_t number){
     //map continously for performance?
@@ -11,12 +13,20 @@ static void map_region(uint8_t** bank, size_t size, uint8_t number){
         bank[i] = bank[0] + size*i;
 }
 
-mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM){
+mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM, char* filename){
+    int rom_fd = 0;
     map = Malloc(sizeof(mapper_t));
+
+    rom_fd = open(filename, O_RDONLY);
+    if(rom_fd < 0){
+        LOG(ERROR, "open");
+        exit(1);
+    }
 
     //setup the arrays to be used 
     map->ROM_banks = Malloc(sizeof(size_t)*(1<<num_ROM));
 
+    //setup the rest
     map->VRAM_banks = Malloc(sizeof(size_t)*num_VRAM);
     if(num_EXRAM)
         map->EXRAM_banks = Malloc(sizeof(size_t)*num_EXRAM);
@@ -24,9 +34,16 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
         map->EXRAM_banks = NULL;
     map->WRAM_banks = Malloc(sizeof(size_t)*8);
 
-    map_region(map->ROM_banks, ROM_SIZE, (1<<num_ROM));
-    map->num_ROM = (1<<num_ROM);
+    map->ROM_banks[0] = Mmap(NULL, ROM_SIZE<<num_ROM, PROT_READ, 
+            MAP_PRIVATE | MAP_ANON, rom_fd, 0);
+
+    //populate the ROM_banks list. this will be used for swapping to the specific pages
+    for(uint8_t i = 1; i < 2<<num_ROM; i++)
+        map->ROM_banks[i] = map->ROM_banks[0] + ROM_SIZE*i;
+    map->num_ROM = 2<<num_ROM;
     LOGF(DEBUG, "ROM: %p",map->ROM_banks[0]);
+    LOGF(DEBUG, "ROM SIZE: 0x%x",ROM_SIZE<<num_ROM);
+    close(rom_fd);
 
     //for now I will handle the maximal case only. I will handle other cases in the future
     map_region(map->VRAM_banks, RAM_SIZE, num_VRAM);
@@ -68,15 +85,16 @@ void release_mapper(mapper_t* map){
 
 //https://gbdev.io/pandocs/MBC1.html
 byte read_MBC1(address addr){
+    LOGF(DEBUG, "attempting to read addr: 0x%x",addr);
     byte ret = 0xFF; //for now return -1 if nothing is read
-    if(addr < 0x4000){ //rom bank 00
+    if(addr >= 0 && addr < 0x4000){ //rom bank 00
         if(!map->MCB1.banking_mode_select)
             ret = map->ROM_banks[0][addr];
         else 
             ret = map->ROM_banks[map->MCB1.reg2 << 5][addr];
-    } else if (addr < 0x8000) { //rom bank 01, swichable via map
+    } else if (addr >= 0x4000 && addr < 0x8000) { //rom bank 01, swichable via map
         ret = map->ROM_banks[map->cur_ROM][addr-0x4000];
-    } else if (addr < 0xA000 && addr < 0xC000 && map->MCB1.RAM_enabled) { //vram, switchable if CGB
+    } else if (addr >= 0xA000 && addr < 0xC000 && map->MCB1.RAM_enabled) { //vram, switchable if CGB
         if(!map->MCB1.banking_mode_select)
             ret = map->EXRAM_banks[0][addr-0xA000];
         else

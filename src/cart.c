@@ -37,74 +37,51 @@ void load_cart(cart_t* cart, char* filename){
     fread(&cart->header_checksum, 1, 1, fp);
     fread(&cart->global_checksum, 2, 1, fp);
 
+    fclose(fp);
+
     return;
 }
 
 //determine the type of cartridge and set mapper functions
 void select_mapper(uint8_t cart_type, mapper_t *mapper){
     switch(cart_type){
-    case ROM_ONLY:
-        //mapper->read_ROM = (*)lol();
-        break;
-    case MBC1:
-        mapper->read = read_MBC1;
-        mapper->write = write_MBC1;
-        break;
-    case MBC1_RAM:
-        break;
-    case MBC1_RAM_BATTERY:
-        break;
-    case MBC2:
-        break;
-    case MBC2_BATTERY:
-        break;
-    case ROM_RAM:
-        break;
-    case ROM_RAM_BATTERY:
-        break;
-    case MMM01:
-        break;
-    case MMM01_RAM:
-        break;
-    case MMM01_RAM_BATTERY:
-        break;
-    case MBC3_TIMER_BATTERY:
-        break;
-    case MBC3_TIMER_RAM_BATTERY:
-        break;
-    case MBC3:
-        break;
-    case MBC3_RAM:
-        break;
-    case MBC3_RAM_BATTERY:
-        break;
-    case MBC5:
-        break;
-    case MBC5_RAM:
-        break;
-    case MBC5_RAM_BATTERY:
-        break;
-    case MBC5_RUMBLE:
-        break;
-    case MBC5_RUMBLE_RAM:
-        break;
-    case MBC5_RUMBLE_RAM_BATTERY:
-        break;
-    case MBC6:
-        break;
-    case MBC7_SENSOR_RUMBLE_RAM_BATTERY:
-        break;
-    case POCKET_CAMERA:
-        break;
-    case BANDAI_TAMA5:
-        break;
-    case HuC3:
-        break;
-    case HuC1_RAM_BATTERY:
-        break;
-    default:
-        LOG(ERROR, "Cartridge not recognized");
-        exit(1);
-    }
+        case MBC1:
+            LOG(INFO, "Cart type is MBC1");
+            mapper->read = read_MBC1;
+            mapper->write = write_MBC1;
+            break;
+        case ROM_ONLY:
+        case MBC1_RAM:
+        case MBC1_RAM_BATTERY:
+        case MBC2:
+        case MBC2_BATTERY:
+        case ROM_RAM:
+        case ROM_RAM_BATTERY:
+        case MMM01:
+        case MMM01_RAM:
+        case MMM01_RAM_BATTERY:
+        case MBC3_TIMER_BATTERY:
+        case MBC3_TIMER_RAM_BATTERY:
+        case MBC3:
+        case MBC3_RAM:
+        case MBC3_RAM_BATTERY:
+        case MBC5:
+        case MBC5_RAM:
+        case MBC5_RAM_BATTERY:
+        case MBC5_RUMBLE:
+        case MBC5_RUMBLE_RAM:
+        case MBC5_RUMBLE_RAM_BATTERY:
+        case MBC6:
+        case MBC7_SENSOR_RUMBLE_RAM_BATTERY:
+        case POCKET_CAMERA:
+        case BANDAI_TAMA5:
+        case HuC3:
+        case HuC1_RAM_BATTERY:
+            LOG(ERROR, "Cartridge not supported")
+            exit(1);
+        default:
+            LOG(ERROR, "Cartridge not recognized");
+            exit(1);
+        }
 }
 

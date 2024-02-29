@@ -56,5 +56,6 @@ HuC1_RAM_BATTERY
 
 //read the header and s
 void load_cart(cart_t* cart, char* filename);
+void select_mapper(uint8_t cart_type, mapper_t* mapper);
 
 #endif

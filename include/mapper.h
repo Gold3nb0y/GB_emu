@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "log.h"
 
-#define ROM_SIZE 0x4000
+#define ROM_SIZE 0x8000
 #define RAM_SIZE 0x2000
 #define WRAM_SIZE 0x1000
 /*
@@ -40,7 +40,7 @@ typedef struct mapper_struct{
     };
 }__attribute__((packed)) mapper_t;
 
-mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM);
+mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM, char* filename);
 uint8_t* swap_ROM(uint8_t bank_num);
 uint8_t* swap_VRAM(uint8_t bank_num);
 uint8_t* swap_WRAM(uint8_t bank_num);
