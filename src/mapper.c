@@ -35,11 +35,13 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     map->WRAM_banks = Malloc(sizeof(size_t)*8);
 
     map->ROM_banks[0] = Mmap(NULL, ROM_SIZE<<num_ROM, PROT_READ, 
-            MAP_PRIVATE | MAP_ANON, rom_fd, 0);
+            MAP_PRIVATE, rom_fd, 0);
+
+    LOGF(DEBUG, "ENTRY VALUE 0x%x",map->ROM_banks[0][0x100]);
 
     //populate the ROM_banks list. this will be used for swapping to the specific pages
     for(uint8_t i = 1; i < 2<<num_ROM; i++)
-        map->ROM_banks[i] = map->ROM_banks[0] + ROM_SIZE*i;
+        map->ROM_banks[i] = map->ROM_banks[0] + ROM_BANK_SIZE*i;
     map->num_ROM = 2<<num_ROM;
     LOGF(DEBUG, "ROM: %p",map->ROM_banks[0]);
     LOGF(DEBUG, "ROM SIZE: 0x%x",ROM_SIZE<<num_ROM);
@@ -100,6 +102,7 @@ byte read_MBC1(address addr){
         else
             ret = map->EXRAM_banks[map->cur_EXRAM][addr-0xA000];
     }
+    LOGF(DEBUG, "byte read: 0x%x", ret);
     return ret;
 }
 

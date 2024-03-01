@@ -5,6 +5,7 @@
 #include "log.h"
 
 #define ROM_SIZE 0x8000
+#define ROM_BANK_SIZE 0x4000
 #define RAM_SIZE 0x2000
 #define WRAM_SIZE 0x1000
 /*
