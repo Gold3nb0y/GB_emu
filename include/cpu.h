@@ -7,7 +7,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#define DEBUG_CPU
 
 //note to self since cpu uses the main bus, I can not use the CPU inside of main bus
 typedef struct CPU_struct{
@@ -16,11 +15,11 @@ typedef struct CPU_struct{
         uint16_t AF;
         struct {
             struct{
-                unsigned Z: 1;
-                unsigned N: 1;
-                unsigned HC: 1;
-                unsigned C: 1;
-                unsigned unused: 4;
+                uint8_t Z: 1;
+                uint8_t N: 1;
+                uint8_t HC: 1;
+                uint8_t C: 1;
+                uint8_t unused: 4;
             }FLAGS;
             uint8_t A;
         };
@@ -53,10 +52,12 @@ typedef struct CPU_struct{
 
 static CPU_t cpu;
 
-CPU_t* init(address entry, main_bus_t* bus);
+CPU_t* init(main_bus_t* bus);
 
 void reset();
 
-uint64_t exec(uint64_t ticks);
+uint64_t exec_program(uint64_t ticks);
+void patch(char* bytecode, size_t size);
+void dump_cpu();
 
 #endif

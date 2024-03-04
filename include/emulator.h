@@ -6,6 +6,7 @@
 #include "cart.h"
 #include "main_bus.h"
 #include "log.h"
+#include "tests.h"
 
 typedef struct emulator_struct{
     CPU_t* cpu;
@@ -17,8 +18,12 @@ typedef struct emulator_struct{
 
 static emulator_t emu;
 
+#define NUM_TESTS 5
+typedef int(*test_func)();
+
 //initialize all of the variable required to start. includes reading the cartridge header
 void create_emulator(char* filename);
 void run();
+void test_cpu();
 emulator_t* get_emu();
 #endif

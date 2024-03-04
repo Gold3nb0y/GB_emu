@@ -3,7 +3,9 @@
 #include "log.h"
 #include "main_bus.h"
 #include "mapper.h"
+#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/types.h>
 
 static void ld_rr(byte opcode);
@@ -29,33 +31,18 @@ static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
 #define RST 6
 
 //for testing
-static void patch(){
-    ssize_t i = 0x1000;
-
-    //hardcord in some test values;
-    cpu.bus->ROM_B0[i++] = 0x0E;
-    cpu.bus->ROM_B0[i++] = 0x69;
-    cpu.bus->ROM_B0[i++] = 0x41;
-    cpu.bus->ROM_B0[i++] = 0x50;
-    cpu.bus->ROM_B0[i++] = 0x2E;
-    cpu.bus->ROM_B0[i++] = 0x20;
-    cpu.bus->ROM_B0[i++] = 0x26;
-    cpu.bus->ROM_B0[i++] = 0x04;
-    cpu.bus->ROM_B0[i++] = 0;
-    cpu.bus->ROM_B0[i++] = 0x76; //HALT
-
-    cpu.PC = 0x1000;
+void patch(char* bytecode, size_t size){
+    uint64_t i;
+    for(i = 0; i < size; i++)
+        cpu.bus->ROM_B0[0x100+i] = bytecode[i];
+    return;
 }
 
-CPU_t* init(address entry, main_bus_t* bus){
+CPU_t* init(main_bus_t* bus){
     memset(&cpu, 0, sizeof(CPU_t));
     cpu.SP = 0xFFFE;
     cpu.PC = 0x100;
     cpu.bus = bus;
-
-#ifdef DEBUG_CPU
-    //patch();
-#endif
 
     //give the emulator a refrence to the CPU
     return &cpu;
@@ -596,51 +583,65 @@ static void control_flow(byte opcode){
     return;
 }
 
+void dump_cpu(){
+    LOG(DEBUG,"---CPU contents---");
+    LOGF(DEBUG, "CPU.AF @%p", &cpu.AF);
+    LOGF(DEBUG,"PC: 0x%04x",cpu.PC);
+    LOGF(DEBUG,"AF: 0x%04x",cpu.AF);
+    LOGF(DEBUG,"BC: 0x%04x",cpu.BC);
+    LOGF(DEBUG,"DE: 0x%04x",cpu.DE);
+    LOGF(DEBUG,"HL: 0x%04x",cpu.HL);
+    LOGF(DEBUG,"SP: 0x%04x",cpu.SP);
+    LOG(DEBUG,"------------------");
+}
+
+uint64_t exec_inst(byte opcode){
+    uint8_t* temp_reg;
+    LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
+#ifdef DEBUG_CPU
+    dump_cpu();
+#endif
+
+    //seperating the instructions into groups based on the top 2 bits.
+    //This allows me to use the same code to run some instructions
+    switch(opcode >> 6){
+        case 0: //basic instructions
+            basic_instr(opcode);
+            break;
+        case 1: //register loads
+            if(opcode == HALT) return 0; //stop the system clock
+            ld_rr(opcode);
+            break;
+        case 2: //arithmetic and bitwise operations
+            get_8bit_register(opcode, 0, &temp_reg);
+            if(!temp_reg)
+                *temp_reg = read_bus(cpu.HL);
+            logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
+            break;
+        case 3: //control flow, can filter some out so I figure it's worth it may change later
+            control_flow(opcode);
+            break;
+        default:
+            LOGF(ERROR,"unsupported instruction: 0x%x", opcode);
+            return -1;
+    }
+    return 1;
+}
+
 //TODO think about running instructions in parrellel with Fetch/execute overlap
 //alternatively, I can also run in sequence, and code in the different stages later.
 //basically, I could try to fetch something every cycle, this would involve maintaining a transitional state 
 //Maybe I could break the instructions into tasklets that preform an operation each iteration?
 //another thing I coudl do is the just estimate all the registers and grab the regardless of the instruction
-uint64_t exec(uint64_t ticks){
+uint64_t exec_program(uint64_t ticks){
     byte opcode;
-    uint8_t* temp_reg;
+    uint64_t ret;
 
     for(uint64_t i = 0; i < ticks; i++){
-        opcode = read_bus(cpu.PC++);
-#ifdef DEBUG_CPU
-        LOG(DEBUG,"---CPU contents---");
-        LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
-        LOGF(DEBUG,"PC: 0x%04x",cpu.PC);
-        LOGF(DEBUG,"AF: 0x%04x",cpu.AF);
-        LOGF(DEBUG,"BC: 0x%04x",cpu.BC);
-        LOGF(DEBUG,"DE: 0x%04x",cpu.DE);
-        LOGF(DEBUG,"HL: 0x%04x",cpu.HL);
-        LOGF(DEBUG,"SP: 0x%04x",cpu.SP);
-        LOG(DEBUG,"------------------");
-#endif
-
-        //seperating the instructions into groups based on the top 2 bits.
-        //This allows me to use the same code to run some instructions
-        switch(opcode >> 6){
-            case 0: //basic instructions
-                basic_instr(opcode);
-                break;
-            case 1: //register loads
-                if(opcode == HALT) return 0; //stop the system clock
-                ld_rr(opcode);
-                break;
-            case 2: //arithmetic and bitwise operations
-                get_8bit_register(opcode, 0, &temp_reg);
-                if(!temp_reg)
-                    *temp_reg = read_bus(cpu.HL);
-                logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
-                break;
-            case 3: //control flow, can filter some out so I figure it's worth it may change later
-                control_flow(opcode);
-                break;
-            default:
-                LOGF(ERROR,"unsupported instruction: 0x%x", opcode);
-                return 0;
+        opcode = read_bus(cpu.PC++); 
+        ret = exec_inst(opcode);
+        if(!ret){
+            return 0;
         }
     }
     return ticks;
@@ -685,6 +686,8 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
             *reg = &cpu.A;
             break;
     }
+    LOGF(DEBUG, "cpu @%p", &cpu);
+    LOGF(DEBUG, "register address %p", *reg);
 }
 
 enum REGS_16 {

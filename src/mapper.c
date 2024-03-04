@@ -34,8 +34,14 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
         map->EXRAM_banks = NULL;
     map->WRAM_banks = Malloc(sizeof(size_t)*8);
 
+//test is allowed to overwrite rom to test instructions
+#ifdef TEST
+    map->ROM_banks[0] = Mmap(NULL, ROM_SIZE<<num_ROM, PROT_READ | PROT_WRITE, 
+            MAP_PRIVATE, rom_fd, 0);
+#else
     map->ROM_banks[0] = Mmap(NULL, ROM_SIZE<<num_ROM, PROT_READ, 
             MAP_PRIVATE, rom_fd, 0);
+#endif /* ifdef TEST */
 
     LOGF(DEBUG, "ENTRY VALUE 0x%x",map->ROM_banks[0][0x100]);
 
