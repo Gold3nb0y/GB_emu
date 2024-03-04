@@ -2,14 +2,25 @@
 #include "common.h"
 #include "opcodes.h"
 
-
 int test1(){
-    char bytecode[] = {LD_A, 0xFF};
-    patch(bytecode, 2);
-    exec_program(1);
-    LOG(INFO, "program completed");
+    int rc = 0;
+    char bytecode[] = {
+        LD_A, 0x41,
+        LD_B, 0x42,
+        LD_C, 0x43,
+        LD_D, 0x44,
+        LD_E, 0x45,
+        LD_H, 0x46,
+        LD_L, 0x47,
+    };
+    LOG(DEBUG, "Testing load 8 byte");
+    patch(bytecode, sizeof(bytecode));
+    exec_program(7);
+    LOGF(DEBUG, "cpu @%p", &cpu);
     dump_cpu();
-    return 0;
+    if(cpu.A != 0x41 || cpu.B != 0x42 || cpu.C != 0x43 || cpu.D != 0x44 || cpu.E != 0x45 || cpu.H != 0x46 || cpu.L != 0x47)
+        rc = -1;
+    return rc;
 }
 int test2(){
 

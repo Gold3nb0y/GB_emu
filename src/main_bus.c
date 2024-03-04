@@ -1,6 +1,7 @@
 #include "main_bus.h"
 #include <stdint.h>
 
+static main_bus_t* bus;
 
 static uint8_t parse_ram(uint8_t header_val){
     switch(header_val){

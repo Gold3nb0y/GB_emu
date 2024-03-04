@@ -12,7 +12,7 @@ static void ld_rr(byte opcode);
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
 
-//TODO I may need to implement a read byte and a read word. there are a few times where I have to read a word instead of a byte
+CPU_t cpu;
 
 //for arithmetic and logic
 #define ADD 0
@@ -585,7 +585,6 @@ static void control_flow(byte opcode){
 
 void dump_cpu(){
     LOG(DEBUG,"---CPU contents---");
-    LOGF(DEBUG, "CPU.AF @%p", &cpu.AF);
     LOGF(DEBUG,"PC: 0x%04x",cpu.PC);
     LOGF(DEBUG,"AF: 0x%04x",cpu.AF);
     LOGF(DEBUG,"BC: 0x%04x",cpu.BC);

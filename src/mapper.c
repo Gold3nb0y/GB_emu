@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+static mapper_t *map;
+
 static void map_region(uint8_t** bank, size_t size, uint8_t number){
     //map continously for performance?
     bank[0] = Mmap(NULL, size*number, PROT_READ | PROT_WRITE, 

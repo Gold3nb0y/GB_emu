@@ -49,7 +49,4 @@ void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
 
-//for internal use;
-static mapper_t *map;
-
 #endif // !MAPPER_H

@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+static emulator_t emu;
+
 static void cleanup(){
     LOG(INFO, "cleanup");
     release_bus(emu.main_bus);  
