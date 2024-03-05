@@ -8,6 +8,22 @@
 #define ROM_BANK_SIZE 0x4000
 #define RAM_SIZE 0x2000
 #define WRAM_SIZE 0x1000
+
+#define ROM0_START  0
+#define ROMN_START  0x4000
+#define VRAM_START  0x8000
+#define EXRAM_START 0xA000
+#define WRAM0_START 0xC000
+#define WRAMN_START 0xD000
+#define WRAMN_END   0xF000
+#define OAM_START   0xFE00
+#define OAM_END     0xFEA0
+#define IO_START    0xFF00
+#define HRAM_START  0xFF80
+#define IE_REG      0xFFFF
+
+#define HRAM_SIZE 0x7e
+
 /*
  * my idea for mapper is to abstract away the details by allowing a set of functions to be selected
  */
@@ -18,6 +34,7 @@ typedef struct mapper_struct{
     byte** VRAM_banks;
     byte** EXRAM_banks;
     byte** WRAM_banks;
+    byte* HRAM;
     //define a read write interface
     byte (*read)(address addr);
     void (*write)(address addr, byte chr);
@@ -48,5 +65,7 @@ uint8_t* swap_WRAM(uint8_t bank_num);
 void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
+
+//for internal use;
 
 #endif // !MAPPER_H

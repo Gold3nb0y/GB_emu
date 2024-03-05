@@ -16,7 +16,6 @@ typedef struct emulator_struct{
     bool running;
 }emulator_t;
 
-static emulator_t emu;
 
 #define NUM_TESTS 5
 typedef int(*test_func)();

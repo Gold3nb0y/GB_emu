@@ -72,6 +72,9 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     map->num_WRAM = num_WRAM;
     LOGF(DEBUG, "WRAM: %p",map->WRAM_banks[0]);
 
+    map->HRAM = Malloc(HRAM_SIZE);
+    LOGF(DEBUG, "HRAM: %p",map->HRAM);
+
     //to be figured out later
     map->read = NULL;
     map->write = NULL; 
@@ -95,7 +98,6 @@ void release_mapper(mapper_t* map){
 
 //https://gbdev.io/pandocs/MBC1.html
 byte read_MBC1(address addr){
-    LOGF(DEBUG, "attempting to read addr: 0x%x",addr);
     byte ret = 0xFF; //for now return -1 if nothing is read
     if(addr >= 0 && addr < 0x4000){ //rom bank 00
         if(!map->MCB1.banking_mode_select)
@@ -110,22 +112,25 @@ byte read_MBC1(address addr){
         else
             ret = map->EXRAM_banks[map->cur_EXRAM][addr-0xA000];
     }
-    LOGF(DEBUG, "byte read: 0x%x", ret);
     return ret;
 }
 
 //https://gbdev.io/pandocs/MBC1.html
 void write_MBC1(address addr, byte data){
     if(addr < 0x2000 && (data & 0xF) == 0xA){
+        LOG(DEBUG, "enabling RAM");
         map->MCB1.RAM_enabled = true;     
-    } else if(addr < 0x4000){
+        return;
+    } else if(addr >= 0x2000 && addr < 0x4000){
         map->MCB1.reg1 = data & 0x1f;
-    } else if(addr < 0x6000){
+    } else if(addr >= 0x4000 && addr < 0x6000){
         map->MCB1.reg2 = data & 0x3;
-    } else if(addr < 0x8000){
+    } else if(addr >= 0x6000 && addr < 0x8000){
         map->MCB1.banking_mode_select = data & 1 ? 1 : 0;
     } else if(addr > 0xA000 && addr < 0xC000 && map->MCB1.RAM_enabled){
+        LOGF(DEBUG, "write to memory bank with address %p", map->EXRAM_banks[map->cur_EXRAM]);
         map->EXRAM_banks[map->cur_EXRAM][addr-0xA000] = data;
+        return;
     }
     
     map->cur_ROM = (map->MCB1.reg2 << 5) | map->MCB1.reg2;

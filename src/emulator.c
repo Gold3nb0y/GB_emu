@@ -14,7 +14,8 @@ static void cleanup(){
 void reset_cpu(){
     emu.main_bus->ROM_B0 = emu.main_bus->mapper->ROM_banks[0];
     emu.main_bus->ROM_BN = emu.main_bus->mapper->ROM_banks[1];
-    memset(emu.cpu + 8, 0, sizeof(CPU_t)-8);
+    memset(emu.cpu, 0, sizeof(CPU_t));
+    emu.cpu->bus = emu.main_bus;
     cpu.SP = 0xFFFE;
     cpu.PC = 0x100;
     return;
@@ -52,22 +53,24 @@ emulator_t* get_emu(){
 
 #ifdef TEST
 test_func tests[] = {
-    test1,
-    test2,
-    test3,
+    test_ld,
+    test_mem,
+    test_arith,
     test4,
     test5,
+    NULL,
 };
 
 void test_cpu(){
     uint64_t rc, i;
     LOG(INFO, "running tests");
-    for(i = 0; i < NUM_TESTS; i++){
+    for(i = 0; tests[i] != NULL; i++){
         rc = tests[i]();
         if(rc){
-            LOGF(ERROR, "Test %ld failed with rc %ld", i, rc);
+            LOGF(ERROR, "Test %ld failed with rc %ld", i+1, rc);
+            break;
         } else {
-            LOGF(INFO, "Test %ld passed", i);
+            LOGF(INFO, "Test %ld passed", i+1);
         }
         reset_cpu();
     }

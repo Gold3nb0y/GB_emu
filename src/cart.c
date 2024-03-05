@@ -37,6 +37,10 @@ void load_cart(cart_t* cart, char* filename){
     fread(&cart->header_checksum, 1, 1, fp);
     fread(&cart->global_checksum, 2, 1, fp);
 
+#ifdef TEST
+    cart->val_RAM = 2; //for now patch in RAM
+#endif
+
     fclose(fp);
 
     return;

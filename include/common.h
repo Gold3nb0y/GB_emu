@@ -21,5 +21,6 @@ typedef uint8_t byte;
 #define SUCCESS 0;
 #define FAIL -1;
 #define DEBUG_CPU
+#define DEBUG_BUS
 
 #endif // !COMMON_H

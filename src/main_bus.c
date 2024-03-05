@@ -64,29 +64,89 @@ void release_bus(main_bus_t* bus){
     return;
 }
 
+byte read_bus_generic(address addr){
+    byte ret = 0;
+    if(addr >= VRAM_START && addr < EXRAM_START){
+        ret = bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START];
+    } else if(addr >= WRAM0_START && addr < WRAMN_START){
+        ret = bus->mapper->WRAM_banks[0][addr-WRAM0_START];
+    } else if(addr >= WRAMN_START && addr < WRAMN_END){
+        ret = bus->mapper->WRAM_banks[bus->mapper->cur_WRAM][addr-WRAMN_START];
+    } else if(addr >= WRAMN_END && addr < OAM_START){
+        LOG(ERROR, "undocumented memory access");
+    } else if(addr >= OAM_START && addr < OAM_END){
+        LOG(ERROR, "unimplemented");
+    } else if(addr >= OAM_END && addr < IO_START){
+        LOG(ERROR, "undocumented memory access");
+    } else if(addr >= IO_START && addr < HRAM_START){
+        LOG(ERROR, "unimplemented");
+    } else if(addr >= HRAM_START && addr < IE_REG){
+        ret = bus->mapper->HRAM[addr-HRAM_START];
+    } else {
+        //Interupt enable
+        LOG(ERROR, "unimplemented");
+    }
+    return ret;
+}
+
+void write_bus_generic(address addr, byte data){
+    if(addr >= VRAM_START && addr < EXRAM_START){
+        bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START] = data;
+    } else if(addr >= WRAM0_START && addr < WRAMN_START){
+        bus->mapper->WRAM_banks[0][addr-WRAM0_START] = data;
+    } else if(addr >= WRAMN_START && addr < WRAMN_END){
+        bus->mapper->WRAM_banks[bus->mapper->cur_WRAM][addr-WRAMN_START] = data;
+    } else if(addr >= WRAMN_END && addr < OAM_START){
+        LOG(ERROR, "undocumented memory access");
+    } else if(addr >= OAM_START && addr < OAM_END){
+        LOG(ERROR, "unimplemented");
+    } else if(addr >= OAM_END && addr < IO_START){
+        LOG(ERROR, "undocumented memory access");
+    } else if(addr >= IO_START && addr < HRAM_START){
+        LOG(ERROR, "unimplemented");
+    } else if(addr >= HRAM_START && addr < IE_REG){
+        bus->mapper->HRAM[addr-HRAM_START] = data;
+    } else {
+        //Interupt enable
+        LOG(ERROR, "unimplemented");
+    }
+}
+
 //trigger any special addresses and if there are none read from mapper
 byte read_bus(address addr){
+#ifdef DEBUG_BUS
+    LOGF(DEBUG, "attempting to read addr: 0x%x",addr);
+#endif
     byte ret;
-    ret = bus->mapper->read(addr);
+    if((addr >= 0x8000 && addr < 0xA000) || addr >= 0xC000){
+        ret = read_bus_generic(addr);
+    } else {
+        ret = bus->mapper->read(addr);
+    }
     return ret;
 }
 
 address read_bus_addr(address addr){
     address ret;
-    ret = bus->mapper->read(addr) << 8;
-    ret |= bus->mapper->read(addr+1);
+    ret = read_bus(addr) << 8;
+    ret |= read_bus(addr+1);
     return ret;
 }
 
 void write_bus(address addr, byte chr){
-    //the mapper will take control entirely at this point
-    bus->mapper->write(addr, chr);
+#ifdef DEBUG_BUS
+    LOGF(DEBUG, "Writing 0x%x to 0x%x", chr, addr);
+#endif
+    if((addr >= 0x8000 && addr < 0xA000) || addr >= 0xC000){
+        write_bus_generic(addr, chr);
+    } else {
+        bus->mapper->write(addr, chr);
+    }
     return;
 }
 
 void write_bus_addr(address dest, address addr){
-    //the mapper will take control entirely at this point
-    bus->mapper->write(dest, addr >> 8);
-    bus->mapper->write(dest+1, addr & 0xff);
+    write_bus(dest, addr >> 8);
+    write_bus(dest+1, addr & 0xff);
     return;
 }

@@ -50,14 +50,14 @@ CPU_t* init(main_bus_t* bus){
 
 static void check_HC_add(uint8_t val1, uint8_t val2){
     uint8_t chk;
-    chk = val1 & 0xf + val2 & 0xf;
+    chk = (val1 & 0xf) + (val2 & 0xf);
     if(chk & 0x10) cpu.FLAGS.HC = 1;
     else cpu.FLAGS.HC = 0;
 }
 
 static void check_HC_sub(uint8_t val1, uint8_t val2){
     uint8_t chk;
-    chk = val1 & 0x10 - val2 & 0xf;
+    chk = val1 & 0x1F - val2 & 0xf;
     if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 5th bit of val1 was borrowed
     else cpu.FLAGS.HC = 1;
 }
@@ -75,7 +75,7 @@ static uint8_t add(byte v1, byte v2){
 static uint8_t sub(byte v1, byte v2){
     uint8_t result;
     result = v1 - v2;
-    cpu.FLAGS.C = (result < cpu.A) ?  1 : 0;
+    cpu.FLAGS.C = (result > cpu.A) ?  1 : 0;
     check_HC_sub(v1, v2);
     cpu.FLAGS.N = 1;
     return result;
@@ -225,15 +225,15 @@ static void basic_instr(byte opcode){
         case LD_HL: 
         case LD_SP: 
             get_16bit_register(opcode, 4, &temp_reg16);
-            memcpy(temp_reg16, &cpu.bus->ROM_B0[cpu.PC], 2); 
-            cpu.PC += 2;
+            *temp_reg16 = read_bus(cpu.PC++);
+            *temp_reg16 = (*temp_reg16 << 8) + read_bus(cpu.PC++);
             break;
         case STR_BC:
         case STR_DE:
         case STRI_HL:
         case STRD_HL:
             get_16bit_register(opcode, 4, &temp_reg16);
-            if(opcode & 0x30) 
+            if(opcode == STRD_HL) 
                 temp_reg16 = &cpu.HL;
             write_bus(*temp_reg16, cpu.A);
             if(opcode == STRD_HL)
@@ -263,13 +263,14 @@ static void basic_instr(byte opcode){
         case LDI_A_HL:
         case LDD_A_HL: //load memory value into a
             get_16bit_register(opcode, 4, &temp_reg16);
-            if(opcode & 0x30) 
+            if(opcode == LDD_A_HL) 
                 temp_reg16 = &cpu.HL;
             cpu.A = read_bus(*temp_reg16);
             if(opcode == LDD_A_HL)
                 cpu.HL--;
             else if(opcode == LDI_A_HL)
                 cpu.HL++;
+            break;
         case DEC_BC: 
         case DEC_DE: 
         case DEC_HL: 
@@ -596,8 +597,8 @@ void dump_cpu(){
 
 uint64_t exec_inst(byte opcode){
     uint8_t* temp_reg;
-    LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
 #ifdef DEBUG_CPU
+    LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
     dump_cpu();
 #endif
 
@@ -685,8 +686,6 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
             *reg = &cpu.A;
             break;
     }
-    LOGF(DEBUG, "cpu @%p", &cpu);
-    LOGF(DEBUG, "register address %p", *reg);
 }
 
 enum REGS_16 {
@@ -698,7 +697,7 @@ enum REGS_16 {
 
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){
-    switch(opcode >> offset & 0x3){
+    switch((opcode >> offset) & 0x3){
         case BC:
             *reg = &cpu.BC;
             break;
