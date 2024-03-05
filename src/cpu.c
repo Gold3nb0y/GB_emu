@@ -55,10 +55,17 @@ static void check_HC_add(uint8_t val1, uint8_t val2){
     else cpu.FLAGS.HC = 0;
 }
 
+static void check_HC_add_16bit(uint16_t val1, uint16_t val2){
+    uint8_t chk;
+    chk = (val1 & 0xfff) + (val2 & 0xfff);
+    if(chk & 0x1000) cpu.FLAGS.HC = 1;
+    else cpu.FLAGS.HC = 0;
+}
+
 static void check_HC_sub(uint8_t val1, uint8_t val2){
     uint8_t chk;
-    chk = val1 & 0x1F - val2 & 0xf;
-    if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 5th bit of val1 was borrowed
+    chk = (val1 & 0x1F) - (val2 & 0xf);
+    if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 4th bit of val1 was borrowed
     else cpu.FLAGS.HC = 1;
 }
 
@@ -254,7 +261,7 @@ static void basic_instr(byte opcode){
         case ADD_HL_SP: //sum reg into HL
             get_16bit_register(opcode, 4, &temp_reg16);
             cpu.FLAGS.N = 0;
-            check_HC_add(cpu.HL, *temp_reg16);
+            check_HC_add_16bit(cpu.HL, *temp_reg16);
             cpu.HL += *temp_reg16;
             cpu.FLAGS.Z = !cpu.HL;
             break;
@@ -510,7 +517,7 @@ static void basic_instr(byte opcode){
     }
 }
 
-
+//covered in test_arith
 void logic_arith_8bit(byte operation, uint8_t value){
     uint8_t result;
 
