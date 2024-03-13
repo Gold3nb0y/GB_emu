@@ -18,7 +18,6 @@ typedef struct main_bus_struct {
     byte  IE;
 }main_bus_t;
 
-static main_bus_t* bus;
 
 main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* filename);
 void release_bus(main_bus_t* bus);

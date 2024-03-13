@@ -23,4 +23,4 @@ build/%.o : src/%.c include/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ $(LFLAGS)
 
 clean:
-	rm build/* gameboi main.o
+	rm build/* gameboi main.o main.gc*

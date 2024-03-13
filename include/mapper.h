@@ -56,7 +56,7 @@ typedef struct mapper_struct{
             };
         } MCB1;
     };
-}__attribute__((packed)) mapper_t;
+} mapper_t;
 
 mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, uint8_t num_WRAM, char* filename);
 uint8_t* swap_ROM(uint8_t bank_num);
