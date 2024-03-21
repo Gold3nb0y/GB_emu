@@ -192,6 +192,15 @@ int test_arith(){
         LD_A, 0x1,
         LD_B, 0x2,
         OR_B,
+
+        //hc add 16bit
+        LD_B, 0xF,
+        LD_C, 0xFF,
+        LD_H, 0x00,
+        LD_L, 0x00,
+
+        ADD_HL_BC,
+        ADD_HL_BC,
     };
 
     //add
@@ -277,14 +286,54 @@ int test_arith(){
         goto fail;
     }
 
+    exec_program(5);
+    if(cpu.HL != 0xFFF || cpu.FLAGS.HC){
+        dump_cpu();
+        LOG(ERROR, "or failed");
+        rc = 11;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.HL != 0x1FFE || !cpu.FLAGS.HC){
+        dump_cpu();
+        LOG(ERROR, "or failed");
+        rc = 12;
+        goto fail;
+    }
+
     dump_cpu();
     rc = 0;
 fail:
     return rc;
 }
-int test4(){
 
-    return 0;
+int push_pop(){
+    int rc = -1;
+    char bytecode[] = {
+        LD_A, 0x41,
+        LD_B, 0x42,
+        LD_C, 0x43,
+        PUSH_AF,
+        PUSH_BC,
+        POP_DE,
+        POP_HL,
+    };
+
+    patch(bytecode, sizeof(bytecode));
+    exec_program(7);
+
+    if(cpu.DE != 0x4243 || cpu.HL != 0x4100){
+        dump_cpu();
+        LOG(ERROR, "or failed");
+        rc = 1;
+        goto fail;
+    }
+
+    dump_cpu();
+    rc = 0;
+fail:
+    return rc;
 }
 int test5(){
 

@@ -56,7 +56,7 @@ test_func tests[] = {
     test_ld,
     test_mem,
     test_arith,
-    test4,
+    push_pop,
     test5,
     NULL,
 };

@@ -5,6 +5,7 @@ extern CPU_t cpu;
 int test_ld();
 int test_mem();
 int test_arith();
-int test4();
+int push_pop();
 int test5();
+int test6();
 

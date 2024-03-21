@@ -11,6 +11,7 @@
 static void ld_rr(byte opcode);
 static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
+static void get_16bit_register_ALT(byte opcode, uint8_t offset, uint16_t** reg);
 
 CPU_t cpu;
 
@@ -56,7 +57,7 @@ static void check_HC_add(uint8_t val1, uint8_t val2){
 }
 
 static void check_HC_add_16bit(uint16_t val1, uint16_t val2){
-    uint8_t chk;
+    uint16_t chk;
     chk = (val1 & 0xfff) + (val2 & 0xfff);
     if(chk & 0x1000) cpu.FLAGS.HC = 1;
     else cpu.FLAGS.HC = 0;
@@ -68,6 +69,14 @@ static void check_HC_sub(uint8_t val1, uint8_t val2){
     if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 4th bit of val1 was borrowed
     else cpu.FLAGS.HC = 1;
 }
+
+//maybe not needed?
+//static void check_HC_sub_16bit(uint16_t val1, uint16_t val2){
+//    uint16_t chk;
+//    chk = (val1 & 0x1fff) - (val2 & 0xfff);
+//    if(chk & 0x1000) cpu.FLAGS.HC = 1;
+//    else cpu.FLAGS.HC = 0;
+//}
 
 static uint8_t add(byte v1, byte v2){
     uint8_t result;
@@ -91,8 +100,8 @@ static uint8_t sub(byte v1, byte v2){
 //push does not take a refrence to anything, as there should be no need to write
 static void push(uint16_t reg){
     //need to do the writing still
-    write_bus_addr(cpu.PC, reg);
     cpu.SP -= 2;
+    write_bus_addr(cpu.SP, reg);
 }
 
 static void pop(uint16_t* reg){
@@ -574,7 +583,7 @@ void logic_arith_8bit(byte operation, uint8_t value){
 static void control_flow(byte opcode){
     byte op;
     uint16_t* reg; 
-    get_16bit_register(opcode, 4, &reg);
+    get_16bit_register_ALT(opcode, 4, &reg);
     op = opcode & 0xF;
     if(op == POP){
         pop(reg);
@@ -716,6 +725,25 @@ static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){
             break;
         case SP:
             *reg = &cpu.SP;
+            break;
+    }
+}
+
+//there are cases where when parsing an opcode, I want to get the AF register in the 4th slot
+//It is faster to make a different function to parse this
+static void get_16bit_register_ALT(byte opcode, uint8_t offset, uint16_t** reg){
+    switch((opcode >> offset) & 0x3){
+        case BC:
+            *reg = &cpu.BC;
+            break;
+        case DE:
+            *reg = &cpu.DE;
+            break;
+        case HL:
+            *reg = &cpu.HL;
+            break;
+        case SP:
+            *reg = &cpu.AF;
             break;
     }
 }
