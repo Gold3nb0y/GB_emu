@@ -260,6 +260,24 @@ enum prefixed_opcodes{
     SRL
 };
 
+enum REGS_8 {
+    B = 0,
+    C,
+    D,
+    E,
+    H,
+    L,
+    MEM,
+    A
+};
+
+enum REGS_16 {
+    BC = 0,
+    DE,
+    HL,
+    SP,
+};
+
 #define BIT 0x40
 #define RES 0x80
 #define SET 0xC0

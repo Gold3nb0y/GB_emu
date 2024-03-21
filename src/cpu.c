@@ -221,7 +221,6 @@ static void prefixed_instr(){
     //writeback the manipulated value
     if(reg == &mem_val)
         write_bus(cpu.HL, mem_val);
-    
 }
 
 //handle the remaining instructions that are easier to handle individually
@@ -663,16 +662,6 @@ uint64_t exec_program(uint64_t ticks){
     return ticks;
 }
 
-enum REGS_8 {
-    B = 0,
-    C,
-    D,
-    E,
-    H,
-    L,
-    MEM,
-    A
-};
 
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
 //this can only be used for reading with case MEM
@@ -704,12 +693,6 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
     }
 }
 
-enum REGS_16 {
-    BC = 0,
-    DE,
-    HL,
-    SP,
-};
 
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
 static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){

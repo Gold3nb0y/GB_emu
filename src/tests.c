@@ -392,12 +392,19 @@ int call_ret(){
     rc = 0;
 fail:
     return rc;
-
-    return 0;
 }
 
-int test6(){
+int prefixed_instr(){
+    int rc = -1;
+    char bytecode[] = {
+        LD_A, 0x41,
+        CB_PREFIX, (RLC << 4) & A,
+    };
 
-    return 0;
+    patch(bytecode, sizeof(bytecode));
+    exec_program(6);
+
+fail:
+    return rc;
 }
 
