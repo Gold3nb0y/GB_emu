@@ -58,7 +58,7 @@ test_func tests[] = {
     test_arith,
     push_pop,
     call_ret,
-    NULL,
+    prefixed_instr,
 };
 
 void test_cpu(){

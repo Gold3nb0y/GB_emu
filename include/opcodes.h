@@ -278,6 +278,7 @@ enum REGS_16 {
     SP,
 };
 
+#define ROT 0x0
 #define BIT 0x40
 #define RES 0x80
 #define SET 0xC0

@@ -398,12 +398,73 @@ int prefixed_instr(){
     int rc = -1;
     char bytecode[] = {
         LD_A, 0x41,
-        CB_PREFIX, (RLC << 4) & A,
+        CB_PREFIX, BIT_OP(ROT, RRC, A),
+
+        LD_A, 0x80,
+        CB_PREFIX, BIT_OP(ROT, RLC, A),
+
+        LD_A, 0xFF,
+        CB_PREFIX, BIT_OP(ROT, RR, A),
+        CB_PREFIX, BIT_OP(ROT, RL, A),
+
+        LD_H, 0x00,
+        LD_L, 0x00,
+        PUSH_HL,
+        POP_AF,
+
+        LD_A, 0x70,
+        CB_PREFIX, BIT_OP(ROT, RR, A),
+        CB_PREFIX, BIT_OP(ROT, RR, A),
+
+        CB_PREFIX, BIT_OP(ROT, RL, A),
+        CB_PREFIX, BIT_OP(ROT, RL, A),
     };
+    LOGF(DEBUG, "testing... 0x%x\n", BIT_OP(ROT, RLC, 7));
 
     patch(bytecode, sizeof(bytecode));
-    exec_program(6);
 
+    exec_program(2);
+    if(cpu.A != 0xA0 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "Rotate right circular");
+        rc = 1;
+        goto fail;
+    }
+
+    exec_program(2);
+    if(cpu.A != 0x1 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "Rotate left circular");
+        rc = 2;
+        goto fail;
+    }
+
+    exec_program(3);
+    if(cpu.A != 0xFF){
+        LOG(ERROR, "Rotate left rotate right");
+        dump_cpu();
+        rc = 3;
+        goto fail;
+    }
+
+    exec_program(7);
+    if(cpu.A != 0x1C){
+        LOG(ERROR, "Rotate right");
+        dump_cpu();
+        rc = 4;
+        goto fail;
+    }
+
+    exec_program(2);
+    if(cpu.A != 0x70){
+        LOG(ERROR, "Rotate left");
+        dump_cpu();
+        rc = 4;
+        goto fail;
+    }
+
+    dump_cpu();
+    rc = 0;
 fail:
     return rc;
 }

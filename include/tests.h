@@ -1,14 +1,14 @@
 #include "cpu.h"
+#include <stdint.h>
 
 extern CPU_t cpu;
 
-#define PREF_OP(op, reg) ((op << 3) & reg)
-#define BIT_OP(base, bit, reg) (base & ((op << 3) & reg))
+#define BIT_OP(base, op, reg) ((base) | ((reg) | ((op) << 3)))
 
 int test_ld();
 int test_mem();
 int test_arith();
 int push_pop();
 int call_ret();
-int test6();
+int prefixed_instr();
 

@@ -136,6 +136,9 @@ static void prefixed_instr(){
     uint8_t mem_val;
     uint8_t tmp_reg;
 
+#ifdef DEBUG_CPU
+    LOGF(DEBUG,"PREFIXED OPCODE: 0x%02x",opcode);
+#endif
     get_8bit_register(opcode, 0, &reg);
     //potential way to handle the writeback for this addr
     if(!reg){
