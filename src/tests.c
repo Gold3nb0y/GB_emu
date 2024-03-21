@@ -325,7 +325,7 @@ int push_pop(){
 
     if(cpu.DE != 0x4243 || cpu.HL != 0x4100){
         dump_cpu();
-        LOG(ERROR, "or failed");
+        LOG(ERROR, "push pop failed");
         rc = 1;
         goto fail;
     }
@@ -335,7 +335,63 @@ int push_pop(){
 fail:
     return rc;
 }
-int test5(){
+int call_ret(){
+    int rc = -1;
+    char bytecode[] = {
+        LD_A, 0x41,
+        LD_B, 0x42,
+        LD_C, 0x43,
+        PUSH_AF,
+        PUSH_BC,
+        CALL, 0x1, 0x10,
+        POP_DE,
+        NOP,
+        NOP,
+        NOP,
+        NOP,
+        LD_H, 0x41,
+        LD_L, 0x42,
+        RET,
+    };
+
+    patch(bytecode, sizeof(bytecode));
+    exec_program(6);
+
+    if(cpu.PC != 0x110){
+        dump_cpu();
+        LOG(ERROR, "CALL failed");
+        rc = 1;
+        goto fail;
+    }
+        
+    exec_program(2);
+    if(cpu.HL != 0x4142){
+        dump_cpu();
+        LOG(ERROR, "After CALL failed");
+        rc = 2;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.PC != 0x10b){
+        dump_cpu();
+        LOG(ERROR, "RET failed");
+        rc = 2;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.DE != 0x4243){
+        dump_cpu();
+        LOG(ERROR, "stack offed");
+        rc = 2;
+        goto fail;
+    }
+
+    dump_cpu();
+    rc = 0;
+fail:
+    return rc;
 
     return 0;
 }
