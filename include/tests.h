@@ -11,4 +11,5 @@ int test_arith();
 int push_pop();
 int call_ret();
 int prefixed_instr();
+int misc_instr();
 

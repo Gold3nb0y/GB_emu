@@ -59,6 +59,7 @@ test_func tests[] = {
     push_pop,
     call_ret,
     prefixed_instr,
+    misc_instr,
 };
 
 void test_cpu(){

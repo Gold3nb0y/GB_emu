@@ -418,6 +418,16 @@ int prefixed_instr(){
 
         CB_PREFIX, BIT_OP(ROT, RL, A),
         CB_PREFIX, BIT_OP(ROT, RL, A),
+
+
+        LD_A, 0x00,
+        CB_PREFIX, BIT_OP(SET, 0x1, A),
+        CB_PREFIX, BIT_OP(SET, 0x2, A),
+
+        CB_PREFIX, BIT_OP(RES, 0x1, A),
+
+        CB_PREFIX, BIT_OP(BIT, 0x1, A),
+        CB_PREFIX, BIT_OP(BIT, 0x2, A),
     };
     LOGF(DEBUG, "testing... 0x%x\n", BIT_OP(ROT, RLC, 7));
 
@@ -463,9 +473,117 @@ int prefixed_instr(){
         goto fail;
     }
 
+    exec_program(3);
+    if(cpu.A != 0x6){
+        LOG(ERROR, "set reg");
+        dump_cpu();
+        rc = 5;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x4){
+        LOG(ERROR, "reset reg");
+        dump_cpu();
+        rc = 6;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.FLAGS.Z){
+        LOG(ERROR, "BIT one");
+        dump_cpu();
+        rc = 7;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(!cpu.FLAGS.Z){
+        LOG(ERROR, "BIT two");
+        dump_cpu();
+        rc = 8;
+        goto fail;
+    }
+
     dump_cpu();
     rc = 0;
 fail:
     return rc;
 }
 
+int misc_instr(){
+    int rc = -1;
+    char bytecode[] = {
+        LD_A, 0x41,
+        LD_BC, 0xFF, 0xF1,
+        LD_HL, 0xFF, 0xF1,
+        STR_BC,
+        INC_BC,
+        STR_BC,
+        LD_SP_HL,
+        POP_DE,
+
+        INC_A,
+        LD_HL, 0x00, 0x01,
+        ADD_HL_BC,
+        STRI_HL,
+        STRI_HL,
+        POP_DE,
+
+        INC_A,
+        LD_HL, 0xFF, 0xF6,
+        STRD_HL,
+        STRD_HL,
+        POP_DE,
+
+        DEC_A,
+        LD_HL, 0xFF, 0xF7,
+        STRI_HL,
+        DEC_HL,
+        DEC_MEM,
+        INC_HL,
+        STRI_HL,
+        DEC_HL,
+        DEC_MEM,
+        POP_DE,
+    };
+
+    patch(bytecode, sizeof(bytecode));
+
+    exec_program(8);
+    if(cpu.DE != 0x4141 || cpu.SP != 0xFFF3){
+        dump_cpu();
+        LOG(ERROR, "complex loads");
+        rc = 1;
+        goto fail;
+    }
+
+    exec_program(6);
+    if(cpu.DE != 0x4242 || cpu.SP != 0xFFF5){
+        dump_cpu();
+        LOG(ERROR, "str and inc");
+        rc = 2;
+        goto fail;
+    }
+
+    exec_program(5);
+    if(cpu.DE != 0x4343 || cpu.SP != 0xFFF7){
+        dump_cpu();
+        LOG(ERROR, "str and dec");
+        rc = 3;
+        goto fail;
+    }
+
+    exec_program(10);
+    if(cpu.DE != 0x4141 || cpu.SP != 0xFFF9){
+        dump_cpu();
+        LOG(ERROR, "dec and dec mem");
+        rc = 4;
+        goto fail;
+    }
+
+    dump_cpu();
+    rc = 0;
+fail:
+    return rc;
+}

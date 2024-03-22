@@ -209,7 +209,7 @@ static void prefixed_instr(){
         default:
             bit = (opcode >> 3) & 7;
             if(opcode >= BIT && opcode < RES){
-                cpu.FLAGS.Z = *reg & 1 << bit ? 0 : 1;
+                cpu.FLAGS.Z = *reg & 1 << bit ? 1 : 0;
                 cpu.FLAGS.N = 0;
                 cpu.FLAGS.HC = 1;
             } else if(opcode >= RES && opcode < SET){
@@ -331,7 +331,7 @@ static void basic_instr(byte opcode){
         case DEC_MEM:
             tmp_byte = read_bus(cpu.HL);
             check_HC_sub(tmp_byte, 1);
-            write_bus(cpu.HL, tmp_byte--);
+            write_bus(cpu.HL, --tmp_byte);
             cpu.FLAGS.Z = !tmp_byte;
             break;
         case LD_A:  
