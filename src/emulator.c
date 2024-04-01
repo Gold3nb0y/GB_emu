@@ -60,6 +60,8 @@ test_func tests[] = {
     call_ret,
     prefixed_instr,
     misc_instr,
+    jumps,
+    NULL,
 };
 
 void test_cpu(){

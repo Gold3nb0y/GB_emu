@@ -391,7 +391,15 @@ static void basic_instr(byte opcode){
             cpu.FLAGS.HC = 1;     
             break;
         case DAA:
-            LOG(ERROR, "Unsure how to implement");
+            tmp_byte = cpu.A & 0xF; //isolate lower nibble
+            //https://faculty.kfupm.edu.sa/COE/aimane/assembly/pagegen-68.aspx.htm from here
+            if(tmp_byte > 10){
+                tmp_byte -= 10;
+                cpu.A >>= 4;
+                cpu.A++;
+                cpu.A <<= 4;
+                cpu.A |= tmp_byte;
+            }
             break;
         case CCF:
             cpu.FLAGS.N = 0;
@@ -478,19 +486,17 @@ static void basic_instr(byte opcode){
         case LD_DIR_n:
             tmp_byte = read_bus(cpu.PC);
             cpu.PC++;
-            write_bus(0xFF00 + tmp_byte, cpu.A);
+            cpu.A = read_bus(0xFF00 + tmp_byte);
             break;
         case LD_DIR:
-            write_bus(0xFF00 + cpu.C, cpu.A);
+            cpu.A = read_bus(0xFF00 + cpu.C);
             break;
         case ADD_SP: 
             rel_off = read_bus(cpu.PC);
             cpu.PC += 1;
-            //be careful that the signed property is being transfered
+            check_HC_add_16bit(cpu.SP, rel_off);
             addr = cpu.SP + rel_off;
-            //not sure how to check the half carry
-            //check_HC();
-            //check carry
+            break;
         case JMP_HL:
             addr = read_bus_addr(cpu.HL);
             cpu.PC = addr;
@@ -515,9 +521,8 @@ static void basic_instr(byte opcode){
         case LD_HL_SP_e:
             rel_off = read_bus(cpu.PC);
             cpu.PC++;
+            check_HC_add_16bit(cpu.HL, cpu.SP + rel_off);
             cpu.HL = cpu.SP + rel_off;
-            //check_HC();
-            //check carry
             break;
         case LD_SP_HL:
             cpu.SP = cpu.HL;

@@ -546,6 +546,25 @@ int misc_instr(){
         DEC_HL,
         DEC_MEM,
         POP_DE,
+
+        LD_A, 0x1,
+        RRCA,
+
+        RLCA,
+
+        RLA,
+
+        RRA,
+        RRA,
+
+        CPL,
+
+        //https://faculty.kfupm.edu.sa/COE/aimane/assembly/pagegen-68.aspx.htm
+        LD_A, 0x5C,
+        DAA,
+
+        SCF,
+        CCF,
     };
 
     patch(bytecode, sizeof(bytecode));
@@ -579,6 +598,103 @@ int misc_instr(){
         dump_cpu();
         LOG(ERROR, "dec and dec mem");
         rc = 4;
+        goto fail;
+    }
+
+    exec_program(2);
+    if(cpu.A != 0x80 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "rot right A");
+        rc = 5;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x1 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "rot left A");
+        rc = 5;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x3 || cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "rot left carry A");
+        rc = 6;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x1 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "rot right carry A");
+        rc = 7;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x80 || !cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "rot right carry A");
+        rc = 8;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.A != 0x7F){
+        dump_cpu();
+        LOG(ERROR, "compliment register");
+        rc = 9;
+        goto fail;
+    }
+
+    exec_program(2);
+    if(cpu.A != 0x62){
+        dump_cpu();
+        LOG(ERROR, "DAA");
+        rc = 10;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(!cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "SCF");
+        rc = 11;
+        goto fail;
+    }
+
+    exec_program(1);
+    if(cpu.FLAGS.C){
+        dump_cpu();
+        LOG(ERROR, "CCF");
+        rc = 12;
+        goto fail;
+    }
+
+    dump_cpu();
+    rc = 0;
+fail:
+    return rc;
+}
+
+int jumps(){
+    int rc = -1;
+    char bytecode[] = {
+        JR, 0x2,
+        LD_A, 0x41,
+
+        LD_A, 0x42,
+    };
+
+    patch(bytecode, sizeof(bytecode));
+
+    exec_program(2);
+    if(cpu.A != 0x42){
+        dump_cpu();
+        LOG(ERROR, "JR");
+        rc = 1;
         goto fail;
     }
 
