@@ -50,7 +50,7 @@ typedef struct CPU_struct{
     byte IME; //interrupts enabled
 }CPU_t;
 
-CPU_t* init(main_bus_t* bus);
+CPU_t* init_cpu(main_bus_t* bus);
 
 void reset();
 

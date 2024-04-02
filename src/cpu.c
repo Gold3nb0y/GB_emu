@@ -39,7 +39,7 @@ void patch(char* bytecode, size_t size){
     return;
 }
 
-CPU_t* init(main_bus_t* bus){
+CPU_t* init_cpu(main_bus_t* bus){
     memset(&cpu, 0, sizeof(CPU_t));
     cpu.SP = 0xFFFE;
     cpu.PC = 0x100;

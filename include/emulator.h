@@ -6,12 +6,13 @@
 #include "cart.h"
 #include "main_bus.h"
 #include "log.h"
+#include "signal.h"
 #include "tests.h"
 
 typedef struct emulator_struct{
     CPU_t* cpu;
     main_bus_t *main_bus;
-    PPU_t PPU;
+    PPU_t* ppu;
     cart_t cart;
     bool running;
 }emulator_t;

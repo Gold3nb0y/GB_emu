@@ -49,7 +49,6 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* file
     bus->WRAM_BN = bus->mapper->WRAM_banks[1];
 
     bus->OAM = Malloc(0xa0);
-    bus->HRAM = Malloc(0x7F);
     bus->IE = 0xff; //still not sure of the init value
     return bus;
 }
@@ -58,7 +57,6 @@ void release_bus(main_bus_t* bus){
     release_mapper(bus->mapper);
     free(bus->mapper);
     free(bus->OAM);
-    free(bus->HRAM);
     memset(bus, 0, sizeof(main_bus_t));
     free(bus);
     return;

@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "log.h"
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 
@@ -39,7 +40,7 @@ typedef uint8_t byte;
 
 #define SUCCESS 0;
 #define FAIL -1;
-#define DEBUG_CPU
-#define DEBUG_BUS
+//#define DEBUG_CPU
+//#define DEBUG_BUS
 
 #endif // !COMMON_H

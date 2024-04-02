@@ -30,6 +30,8 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
 
     //setup the rest
     map->VRAM_banks = Malloc(sizeof(size_t)*num_VRAM);
+    LOGF(DEBUG, "VRAM_Banks: %p", map->VRAM_banks);
+
     if(num_EXRAM)
         map->EXRAM_banks = Malloc(sizeof(size_t)*num_EXRAM);
     else 
@@ -48,7 +50,7 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     LOGF(DEBUG, "ENTRY VALUE 0x%x",map->ROM_banks[0][0x100]);
 
     //populate the ROM_banks list. this will be used for swapping to the specific pages
-    for(uint8_t i = 1; i < 2<<num_ROM; i++)
+    for(uint8_t i = 1; i < 1<<num_ROM; i++)
         map->ROM_banks[i] = map->ROM_banks[0] + ROM_BANK_SIZE*i;
     map->num_ROM = 2<<num_ROM;
     LOGF(DEBUG, "ROM: %p",map->ROM_banks[0]);
@@ -90,9 +92,13 @@ void release_mapper(mapper_t* map){
     if(map->EXRAM_banks)
         munmap(map->WRAM_banks[0], WRAM_SIZE*map->num_WRAM);
     free(map->ROM_banks);
+    LOG(INFO, "unmapped banks");
+    LOGF(DEBUG, "VRAM_BANKS: %p", map->VRAM_banks);
     free(map->VRAM_banks);
     free(map->WRAM_banks);
+    free(map->HRAM);
     memset(map, 0, sizeof(mapper_t));
+    LOG(INFO, "mapper freed");
     return;
 }
 

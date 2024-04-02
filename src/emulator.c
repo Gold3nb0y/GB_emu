@@ -4,10 +4,12 @@
 
 static emulator_t emu;
 
-static void cleanup(){
+void cleanup(int sig){
     LOG(INFO, "cleanup");
     release_bus(emu.main_bus);  
+    cleanup_ppu();
     exit(0);
+    return;
 }
 
 //TODO reset more thouroughly right now just setting things up for a new rom
@@ -24,11 +26,13 @@ void reset_cpu(){
 void create_emulator(char* filename){
     //deref has higher precidence
     bool is_CGB;
+    signal(SIGINT, cleanup);
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
     emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
     select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
-    emu.cpu = init(emu.main_bus);
+    emu.cpu = init_cpu(emu.main_bus);
+    emu.ppu = init_ppu();
     emu.running = true;
     return;
 }
@@ -43,7 +47,7 @@ void run(){
         if(ticks > 0x10)
             break;
     }
-    cleanup();
+    cleanup(0);
 }
 
 
@@ -77,6 +81,7 @@ void test_cpu(){
         }
         reset_cpu();
     }
+    cleanup(0);
 }
 #else
 void test_cpu(){

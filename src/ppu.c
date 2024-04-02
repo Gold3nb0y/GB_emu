@@ -1,6 +1,8 @@
 #include "ppu.h"
 #include <stdint.h>
 
+static PPU_t ppu;
+
 void parse_pixel_row(uint16_t row, pixel_row *values){
     uint8_t a,b;
     uint8_t mask;
@@ -53,4 +55,31 @@ void read_obj(address addr, obj_t *obj){
     obj->tile_index = read_bus(addr+2);
     obj->sprite_flag = read_bus(addr+3);
     return;
+}
+
+//this might change later if the piping doesn't work out, but for now I think this looks good
+PPU_t* init_ppu(){
+    int fifo[2];
+    pid_t pid;
+    if(pipe(fifo) == -1){
+        LOG(ERROR, "Failed to create pipe for ppu and lcd");
+        exit(1);
+    }
+    pid = fork();
+    if(!pid){
+        close(fifo[1]);
+        init_lcd(fifo[0]);
+        lcd_loop();
+    } else {
+        close(fifo[0]);
+        ppu.LCD_fifo_write = fifo[1];
+        ppu.lcd_pid = pid;
+        ppu.STAT.unused = 1; //must be set to one according to documentation
+    }
+    return &ppu;
+}
+
+int cleanup_ppu(){
+    close(ppu.LCD_fifo_write);
+    return 0;
 }

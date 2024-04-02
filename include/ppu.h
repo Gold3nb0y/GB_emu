@@ -2,6 +2,7 @@
 #define PPU_H
 #include "common.h"
 #include "main_bus.h"
+#include "lcd.h"
 #include <stdint.h>
 
 #define HIEGHT 160
@@ -39,6 +40,9 @@ typedef struct object{
  * LY: current position of the scanner
  * obj_buf: contains the objects currently being drawn by the scanline, max of 10
  * ob_idx: contains the index of the next object
+ * LCDC: Control register for the LCD, for information on bits see https://hacktix.github.io/GBEDG/ppu/
+ * STAT: contains the status of the PPU
+ * lcd_pid: pid of process running the LCD
  */
 typedef struct PPU_struct{
     pixel_tile background[0x20][0x20];
@@ -50,5 +54,29 @@ typedef struct PPU_struct{
     uint8_t LY;
     obj_t obj_buf[10];
     uint8_t ob_idx;
-}PPU_t;
+    struct {
+        uint8_t disp_enabled: 1;
+        uint8_t window_tile_map_select: 1;
+        uint8_t window_disp_enabled: 1;
+        uint8_t tile_data_select: 1;
+        uint8_t bg_tile_map_select: 1;
+        uint8_t sprite_size: 1;
+        uint8_t sprite_enable: 1;
+        uint8_t bg_window_enable: 1;
+    } LCDC;
+    struct {
+        uint8_t unused: 1;
+        uint8_t LYC_stat_int: 1;
+        uint8_t mode_2_int: 1;
+        uint8_t mode_1_int: 1;
+        uint8_t mode_0_int: 1;
+        uint8_t coincidence_flag: 1; //set if LYC == LY
+        uint8_t PPU_mode: 2;
+    } STAT;
+    int LCD_fifo_write; //I want to use a pipe to emulate the fifo pipe to the LCD
+    pid_t lcd_pid;
+} PPU_t;
+
+PPU_t* init_ppu();
+int cleanup_ppu();
 #endif
