@@ -82,8 +82,10 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     map->write = NULL; 
     map->MCB1.banking_mode_select = false;
     map->MCB1.RAM_enabled = false;
+    map->io_regs = NULL;
     return map;
 }
+
 
 void release_mapper(mapper_t* map){
     munmap(map->ROM_banks[0], ROM_SIZE*map->num_ROM);
@@ -97,9 +99,29 @@ void release_mapper(mapper_t* map){
     free(map->VRAM_banks);
     free(map->WRAM_banks);
     free(map->HRAM);
+    if(map->io_regs) free(map->io_regs);
     memset(map, 0, sizeof(mapper_t));
     LOG(INFO, "mapper freed");
     return;
+}
+
+byte joypad(byte b){
+    return 0;
+};
+
+io_reg* init_MBC1_regs(){
+    io_reg* ret;
+    uint i = 0;
+    ret = calloc(MBC1_NUM_REGS, sizeof(io_reg));
+    if(!ret){
+        LOG(ERROR, "calloc");
+        exit(1);
+    }
+    
+    ret[i].addr = 0xFF00;
+    ret[i++].callback = joypad;
+
+    return ret;
 }
 
 //https://gbdev.io/pandocs/MBC1.html

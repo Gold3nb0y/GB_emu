@@ -5,10 +5,18 @@
 #include "log.h"
 
 
+typedef byte(*io_callback)(byte);
+
+typedef struct io_struct{
+    address addr;
+    io_callback callback;
+} io_reg;
+
+#define MBC1_NUM_REGS 0x10
+
 /*
  * my idea for mapper is to abstract away the details by allowing a set of functions to be selected
  */
-
 //depending on the type of the mapper, the functions will change. my idea is similar to f_ops from linux kernel
 typedef struct mapper_struct{
     byte** ROM_banks;
@@ -27,6 +35,8 @@ typedef struct mapper_struct{
     byte cur_VRAM;
     byte cur_EXRAM;
     byte cur_WRAM;
+    io_reg *io_regs;
+    uint num_regs;
     union __attribute__((aligned(16))) {
         struct {
             bool RAM_enabled;
@@ -46,6 +56,7 @@ uint8_t* swap_WRAM(uint8_t bank_num);
 void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
+io_reg* init_MBC1_regs();
 
 //for internal use;
 

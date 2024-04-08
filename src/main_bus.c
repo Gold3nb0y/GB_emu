@@ -62,6 +62,17 @@ void release_bus(main_bus_t* bus){
     return;
 }
 
+int check_io_reg(address addr, io_reg* regs){
+    int ret = 0;
+    for(;ret < bus->mapper->num_regs; ret++){
+        if(regs[ret].addr == addr)
+            goto success;
+    }
+    ret = 1;
+success:
+    return ret;
+}
+
 byte read_bus_generic(address addr){
     byte ret = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
@@ -77,7 +88,12 @@ byte read_bus_generic(address addr){
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= IO_START && addr < HRAM_START){
-        LOG(ERROR, "unimplemented");
+        int idx = check_io_reg(addr, bus->mapper->io_regs);
+        if(idx == -1){
+            LOG(ERROR, "register not mapper");
+            return 0;
+        }
+        ret = bus->mapper->io_regs[idx].callback(0);
     } else if(addr >= HRAM_START && addr < IE_REG){
         ret = bus->mapper->HRAM[addr-HRAM_START];
     } else {
@@ -101,7 +117,12 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= IO_START && addr < HRAM_START){
-        LOG(ERROR, "unimplemented");
+        int idx = check_io_reg(addr, bus->mapper->io_regs);
+        if(idx == -1){
+            LOG(ERROR, "register not mapper");
+            return;
+        }
+        bus->mapper->io_regs[idx].callback(data);
     } else if(addr >= HRAM_START && addr < IE_REG){
         bus->mapper->HRAM[addr-HRAM_START] = data;
     } else {

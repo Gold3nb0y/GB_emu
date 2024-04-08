@@ -695,6 +695,7 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
             break;
         case MEM:
             *reg = 0;
+            break;
         case A:
             *reg = &cpu.A;
             break;
