@@ -59,6 +59,7 @@ void release_bus(main_bus_t* bus){
     free(bus->OAM);
     memset(bus, 0, sizeof(main_bus_t));
     free(bus);
+    LOG(INFO, "bus freed")
     return;
 }
 

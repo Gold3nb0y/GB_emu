@@ -92,12 +92,14 @@ void release_mapper(mapper_t* map){
     munmap(map->VRAM_banks[0], RAM_SIZE*map->num_VRAM);
     munmap(map->WRAM_banks[0], WRAM_SIZE*map->num_WRAM);
     if(map->EXRAM_banks)
-        munmap(map->WRAM_banks[0], WRAM_SIZE*map->num_WRAM);
+        munmap(map->EXRAM_banks[0], WRAM_SIZE*map->num_EXRAM);
     free(map->ROM_banks);
     LOG(INFO, "unmapped banks");
     LOGF(DEBUG, "VRAM_BANKS: %p", map->VRAM_banks);
     free(map->VRAM_banks);
     free(map->WRAM_banks);
+    if(map->EXRAM_banks)
+        free(map->EXRAM_banks);
     free(map->HRAM);
     if(map->io_regs) free(map->io_regs);
     memset(map, 0, sizeof(mapper_t));
