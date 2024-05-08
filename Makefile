@@ -9,7 +9,7 @@ test = true
 ifdef test
 OBJS += build/tests.o
 CFLAGS += -D TEST -fprofile-arcs -ftest-coverage
-LFLAGS := -lgcov --coverage
+LFLAGS := -lraylib -lgcov --coverage 
 endif
 
 all: $(OBJS)# all requires the object files to run

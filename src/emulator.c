@@ -1,4 +1,5 @@
 #include "emulator.h"
+#include "lcd.h"
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -8,7 +9,7 @@ void cleanup(int sig){
     LOG(INFO, "cleanup");
     release_bus(emu.main_bus);  
     cleanup_ppu();
-    exit(0);
+    //exit(0);
     return;
 }
 
@@ -47,9 +48,9 @@ void run(){
         if(ticks > 0x10)
             break;
     }
+    getchar();
     cleanup(0);
 }
-
 
 emulator_t* get_emu(){
     return &emu;
@@ -81,6 +82,7 @@ void test_cpu(){
         }
         reset_cpu();
     }
+    getchar();
     cleanup(0);
 }
 #else

@@ -12,7 +12,7 @@ typedef struct main_bus_struct {
     byte* EXRAM;
     byte* WRAM_B0;
     byte* WRAM_BN; //CGB switchable 1-7
-    byte* OAM;
+    byte* OAM; //stores the display data for all sprites
     mapper_t* mapper;
     byte  IE;
 }main_bus_t;

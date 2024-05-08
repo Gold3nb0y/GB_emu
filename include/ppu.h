@@ -12,11 +12,11 @@
 #define BACKGROUND1 0x9800
 #define BACKGROUND2 0x9C00
 
-//to help keep information straight
-typedef uint8_t pixel_row[8];
-typedef pixel_row pixel_tile[8];
-typedef pixel_tile sprite;
-typedef pixel_tile tall_sprite[2];
+////to help keep information straight
+//typedef uint8_t pixel_row[8];
+//typedef pixel_row pixel_tile[8];
+//typedef pixel_tile sprite;
+//typedef pixel_tile tall_sprite[2];
 
 //each row is determend by combining the first and second bytes
 #define PIXEL_ROW_SIZE 2
@@ -73,6 +73,8 @@ typedef struct PPU_struct{
         uint8_t coincidence_flag: 1; //set if LYC == LY
         uint8_t PPU_mode: 2;
     } STAT;
+    uint8_t mode;
+    uint32_t current_cycle;
     int LCD_fifo_write; //I want to use a pipe to emulate the fifo pipe to the LCD
     pid_t lcd_pid;
 } PPU_t;
