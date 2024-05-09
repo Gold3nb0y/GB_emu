@@ -15,6 +15,7 @@ typedef struct main_bus_struct {
     byte* OAM; //stores the display data for all sprites
     mapper_t* mapper;
     byte  IE;
+    byte  joypad;
 }main_bus_t;
 
 
@@ -24,5 +25,6 @@ byte read_bus(address addr);
 void write_bus(address addr, byte chr);
 address read_bus_addr(address addr);
 void write_bus_addr(address dest, address addr);
+io_reg* init_generic_regs(uint64_t num_regs);
 
 #endif

@@ -54,7 +54,8 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
         map->ROM_banks[i] = map->ROM_banks[0] + ROM_BANK_SIZE*i;
     map->num_ROM = 2<<num_ROM;
     LOGF(DEBUG, "ROM: %p",map->ROM_banks[0]);
-    LOGF(DEBUG, "ROM SIZE: 0x%x",ROM_SIZE<<num_ROM);
+    map->rom_size = ROM_SIZE<<num_ROM;
+    LOGF(DEBUG, "ROM SIZE: 0x%lx",map->rom_size);
     close(rom_fd);
 
     //for now I will handle the maximal case only. I will handle other cases in the future
@@ -88,7 +89,7 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
 
 
 void release_mapper(mapper_t* map){
-    munmap(map->ROM_banks[0], ROM_SIZE*map->num_ROM);
+    munmap(map->ROM_banks[0], map->rom_size);
     munmap(map->VRAM_banks[0], RAM_SIZE*map->num_VRAM);
     munmap(map->WRAM_banks[0], WRAM_SIZE*map->num_WRAM);
     if(map->EXRAM_banks)
@@ -107,23 +108,9 @@ void release_mapper(mapper_t* map){
     return;
 }
 
-byte joypad(byte b){
-    return 0;
-};
+void init_MBC1_regs(io_reg* regs){
 
-io_reg* init_MBC1_regs(){
-    io_reg* ret;
-    uint i = 0;
-    ret = calloc(MBC1_NUM_REGS, sizeof(io_reg));
-    if(!ret){
-        LOG(ERROR, "calloc");
-        exit(1);
-    }
-    
-    ret[i].addr = 0xFF00;
-    ret[i++].callback = joypad;
-
-    return ret;
+    return;
 }
 
 //https://gbdev.io/pandocs/MBC1.html

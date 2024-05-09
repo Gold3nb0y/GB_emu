@@ -2,6 +2,7 @@
 #define CART_H
 #include "common.h"
 #include "mapper.h"
+#include "main_bus.h"
 #include <stdint.h>
 
 //sourced from https://gbdev.io/pandocs/The_Cartridge_Header.html

@@ -53,7 +53,8 @@ void select_mapper(uint8_t cart_type, mapper_t *mapper){
             LOG(INFO, "Cart type is MBC1");
             mapper->read = read_MBC1;
             mapper->write = write_MBC1;
-            mapper->io_regs = init_MBC1_regs();
+            mapper->io_regs = init_generic_regs(MBC1_NUM_REGS);
+            init_MBC1_regs(mapper->io_regs);
             mapper->num_regs = MBC1_NUM_REGS;
             break;
         case ROM_ONLY:

@@ -5,11 +5,13 @@
 #include "log.h"
 
 
-typedef byte(*io_callback)(byte);
+typedef byte(*read_io)();
+typedef void(*write_io)(byte);
 
 typedef struct io_struct{
     address addr;
-    io_callback callback;
+    read_io read_callback;
+    write_io write_callback;
 } io_reg;
 
 #define MBC1_NUM_REGS 0x10
@@ -27,6 +29,7 @@ typedef struct mapper_struct{
     //define a read write interface
     byte (*read)(address addr);
     void (*write)(address addr, byte chr);
+    uint64_t rom_size;
     byte num_ROM;
     byte num_VRAM;
     byte num_EXRAM;
@@ -56,7 +59,7 @@ uint8_t* swap_WRAM(uint8_t bank_num);
 void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
-io_reg* init_MBC1_regs();
+void init_MBC1_regs(io_reg* regs);
 
 //for internal use;
 

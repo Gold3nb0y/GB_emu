@@ -140,22 +140,26 @@ void scanline(uint16_t scanline){
 //this might change later if the piping doesn't work out, but for now I think this looks good
 PPU_t* init_ppu(){
     int fifo[2];
-    pid_t pid;
+    pid_t pid = -1;
     if(pipe(fifo) == -1){
         LOG(ERROR, "Failed to create pipe for ppu and lcd");
         exit(1);
     }
+#ifndef HEADLESS
     pid = fork();
     if(!pid){
         close(fifo[1]);
         init_lcd(fifo[0]);
         lcd_loop();
     } else {
+#endif
         close(fifo[0]);
         ppu.LCD_fifo_write = fifo[1];
         ppu.lcd_pid = pid;
         ppu.STAT.unused = 1; //must be set to one according to documentation
+#ifndef HEADLESS
     }
+#endif
     return &ppu;
 }
 

@@ -8,7 +8,7 @@ test = true
 
 ifdef test
 OBJS += build/tests.o
-CFLAGS += -D TEST -fprofile-arcs -ftest-coverage
+CFLAGS += -D TEST -D HEADLESS -fprofile-arcs -ftest-coverage
 LFLAGS := -lraylib -lgcov --coverage 
 endif
 

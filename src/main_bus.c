@@ -69,13 +69,14 @@ int check_io_reg(address addr, io_reg* regs){
         if(regs[ret].addr == addr)
             goto success;
     }
-    ret = 1;
+    ret = -1;
 success:
     return ret;
 }
 
 byte read_bus_generic(address addr){
     byte ret = 0;
+    int idx = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
         ret = bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START];
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
@@ -89,12 +90,12 @@ byte read_bus_generic(address addr){
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= IO_START && addr < HRAM_START){
-        int idx = check_io_reg(addr, bus->mapper->io_regs);
+        idx = check_io_reg(addr, bus->mapper->io_regs);
         if(idx == -1){
             LOG(ERROR, "register not mapper");
             return 0;
         }
-        ret = bus->mapper->io_regs[idx].callback(0);
+        ret = bus->mapper->io_regs[idx].read_callback();
     } else if(addr >= HRAM_START && addr < IE_REG){
         ret = bus->mapper->HRAM[addr-HRAM_START];
     } else {
@@ -123,7 +124,7 @@ void write_bus_generic(address addr, byte data){
             LOG(ERROR, "register not mapper");
             return;
         }
-        bus->mapper->io_regs[idx].callback(data);
+        bus->mapper->io_regs[idx].write_callback(data);
     } else if(addr >= HRAM_START && addr < IE_REG){
         bus->mapper->HRAM[addr-HRAM_START] = data;
     } else {
@@ -169,4 +170,28 @@ void write_bus_addr(address dest, address addr){
     write_bus(dest, addr >> 8);
     write_bus(dest+1, addr & 0xff);
     return;
+}
+
+byte joypad_read(){
+    return bus->joypad & 0xF; //read and return only the lower nibble
+};
+
+void joypad_write(byte b){
+    bus->joypad |= b & 0xF0; //only write the upper nibble
+};
+
+io_reg* init_generic_regs(uint64_t num_regs){
+    io_reg* ret;
+    uint i = 0;
+    ret = calloc(num_regs, sizeof(io_reg));
+    if(!ret){
+        LOG(ERROR, "calloc");
+        exit(1);
+    }
+    
+    ret[i].addr = 0xFF00;
+    ret[i].read_callback = joypad_read;
+    ret[i].write_callback = joypad_write;
+
+    return ret;
 }
