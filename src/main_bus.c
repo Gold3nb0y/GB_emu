@@ -197,10 +197,9 @@ void start_DMA(void *io_reg, byte data){
 }
 
 void DMA_tick(){
-    byte data = read_bus(bus->DMA_info.DMA_addr);
-    bus->OAM[bus->DMA_info.DMA_count] = data;
+    byte data = read_bus(bus->DMA_info.DMA_addr++);
+    bus->OAM[bus->DMA_info.DMA_count++] = data;
 
-    //increment and check for completion
-    if(++bus->DMA_info.DMA_count >= 0xA0)
+    if(bus->DMA_info.DMA_count >= 0xA0)
         bus->DMA_info.DMA_enabled = false;
 }
