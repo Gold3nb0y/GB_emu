@@ -4,18 +4,6 @@
 #include <stdint.h>
 #include "log.h"
 
-
-typedef byte(*read_io)();
-typedef void(*write_io)(byte);
-
-typedef struct io_struct{
-    address addr;
-    read_io read_callback;
-    write_io write_callback;
-} io_reg;
-
-#define MBC1_NUM_REGS 0x10
-
 /*
  * my idea for mapper is to abstract away the details by allowing a set of functions to be selected
  */
@@ -38,7 +26,6 @@ typedef struct mapper_struct{
     byte cur_VRAM;
     byte cur_EXRAM;
     byte cur_WRAM;
-    io_reg *io_regs;
     uint num_regs;
     union __attribute__((aligned(16))) {
         struct {
@@ -59,8 +46,9 @@ uint8_t* swap_WRAM(uint8_t bank_num);
 void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
-void init_MBC1_regs(io_reg* regs);
+void init_MBC1_regs(mapper_t* mapper);
 
 //for internal use;
+//f
 
 #endif // !MAPPER_H

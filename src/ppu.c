@@ -3,6 +3,68 @@
 
 static PPU_t ppu;
 
+//The following functions are used for IO_registers
+byte read_LCDC(void* io_reg){
+    return ppu.LCDC.data;
+}
+
+void write_LCDC(void* io_reg, byte data){
+    ppu.LCDC.data = data;
+}
+
+byte read_STAT(void* io_reg){
+    return ppu.STAT.data;
+}
+
+void write_STAT(void* io_reg, byte data){
+    ppu.STAT.data = data;
+}
+
+byte read_SCX(void* io_reg){
+    return ppu.SCX;
+}
+
+void write_SCX(void* io_reg, byte data){
+    ppu.SCX = data;
+}
+
+byte read_SCY(void* io_reg){
+    return ppu.SCY;
+}
+
+void write_SCY(void* io_reg, byte data){
+    ppu.SCY = data;
+}
+
+byte read_WX(void* io_reg){
+    return ppu.WX;
+}
+
+void write_WX(void* io_reg, byte data){
+    ppu.WX = data;
+}
+
+byte read_WY(void* io_reg){
+    return ppu.WY;
+}
+
+void write_WY(void* io_reg, byte data){
+    ppu.WY = data;
+}
+
+byte read_LY(void* io_reg){
+    return ppu.LY;
+}
+
+byte read_LYC(void* io_reg){
+    return ppu.STAT.flags.coincidence_flag;
+}
+
+void write_LYC(void* io_reg, byte data){
+    ppu.STAT.flags.coincidence_flag = data;
+}
+
+//start of functions used for ppu implementations
 void send_pixel(byte data){
     write(ppu.LCD_fifo_write, &data, 1);
     return;
@@ -40,7 +102,7 @@ address get_tile_address(uint8_t tile_index, bool is_sprite){
     //depending on the value of the LCDC register the lookup changes
     LOG(ERROR, "lookup not fully implemented");
     exit(-1);
-    if(ppu.LCDC.window_tile_map_select && !is_sprite){
+    if(ppu.LCDC.flags.window_tile_map_select && !is_sprite){
         ret = VRAM_START + 0x1000 + ((int8_t)tile_index * 0x10); 
     } else {
         ret = VRAM_START + (tile_index * 0x10); 
@@ -80,7 +142,7 @@ void scan_OAM(uint16_t scanline){
     for(uint8_t i = 0; i < 40; i++){
         read_obj(i, &tmp_obj);
         if(tmp_obj.X > 0 && scanline+16 >= tmp_obj.Y && count < 10){
-            sprite_size = ppu.LCDC.sprite_size ? 16 : 8;
+            sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
             if(scanline+16 < tmp_obj.Y+sprite_size){
                 memcpy(&sprites.to_display[count], &tmp_obj, sizeof(obj_t));
                 count++;
@@ -93,12 +155,12 @@ uint8_t calc_bg_idx(uint8_t x_pos){
     address addr;
     uint8_t tile_idx;
 
-    if(ppu.LCDC.window_disp_enabled){
+    if(ppu.LCDC.flags.window_disp_enabled){
         //do something
         addr = 0;
     } else {
         //fetch bg tile number
-        addr = ppu.LCDC.bg_tile_map_select ? BACKGROUND2 : BACKGROUND1;
+        addr = ppu.LCDC.flags.bg_tile_map_select ? BACKGROUND2 : BACKGROUND1;
         addr += (x_pos + (ppu.SCX / 8)) & 0x1f;
         addr += 32 * (((ppu.LY + ppu.SCY) & 0xFF) / 8);
     }
@@ -156,7 +218,7 @@ PPU_t* init_ppu(){
         close(fifo[0]);
         ppu.LCD_fifo_write = fifo[1];
         ppu.lcd_pid = pid;
-        ppu.STAT.unused = 1; //must be set to one according to documentation
+        ppu.STAT.flags.unused = 1; //must be set to one according to documentation
 #ifndef HEADLESS
     }
 #endif

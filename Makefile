@@ -1,5 +1,5 @@
 #define a series of objects in an array
-OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o
+OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o build/io_ports.o
 CC = gcc
 CFLAGS = -g -Wall -I./include/ 
 

@@ -54,24 +54,30 @@ typedef struct PPU_struct{
     uint8_t LY;
     obj_t obj_buf[10];
     uint8_t ob_idx;
-    struct {
-        uint8_t disp_enabled: 1;
-        uint8_t window_tile_map_select: 1;
-        uint8_t window_disp_enabled: 1;
-        uint8_t tile_data_select: 1;
-        uint8_t bg_tile_map_select: 1;
-        uint8_t sprite_size: 1;
-        uint8_t sprite_enable: 1;
-        uint8_t bg_window_enable: 1;
+    union {
+        uint8_t data;
+        struct {
+            uint8_t disp_enabled: 1;
+            uint8_t window_tile_map_select: 1;
+            uint8_t window_disp_enabled: 1;
+            uint8_t tile_data_select: 1;
+            uint8_t bg_tile_map_select: 1;
+            uint8_t sprite_size: 1;
+            uint8_t sprite_enable: 1;
+            uint8_t bg_window_enable: 1;
+        } flags;
     } LCDC;
-    struct {
-        uint8_t unused: 1;
-        uint8_t LYC_stat_int: 1;
-        uint8_t mode_2_int: 1;
-        uint8_t mode_1_int: 1;
-        uint8_t mode_0_int: 1;
-        uint8_t coincidence_flag: 1; //set if LYC == LY
-        uint8_t PPU_mode: 2;
+    union{
+        uint8_t data;
+        struct {
+            uint8_t unused: 1;
+            uint8_t LYC_stat_int: 1;
+            uint8_t mode_2_int: 1;
+            uint8_t mode_1_int: 1;
+            uint8_t mode_0_int: 1;
+            uint8_t coincidence_flag: 1; //set if LYC == LY
+            uint8_t PPU_mode: 2;
+        } flags;
     } STAT;
     uint8_t mode;
     uint32_t current_cycle;
@@ -81,4 +87,20 @@ typedef struct PPU_struct{
 
 PPU_t* init_ppu();
 int cleanup_ppu();
+byte read_LCDC(void* io_reg);
+void write_LCDC(void* io_reg, byte data);
+byte read_STAT(void* io_reg);
+void write_STAT(void* io_reg, byte data);
+byte read_SCX(void* io_reg);
+void write_SCX(void* io_reg, byte data);
+byte read_SCY(void* io_reg);
+void write_SCY(void* io_reg, byte data);
+byte read_WX(void* io_reg);
+void write_WX(void* io_reg, byte data);
+byte read_WY(void* io_reg);
+void write_WY(void* io_reg, byte data);
+byte read_LY(void* io_reg);
+byte read_LYC(void* io_reg);
+void write_LYC(void* io_reg, byte data);
+
 #endif

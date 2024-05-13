@@ -2,6 +2,7 @@
 #define EMU_H
 #include "common.h"
 #include "cpu.h"
+#include "io_ports.h"
 #include "ppu.h"
 #include "cart.h"
 #include "main_bus.h"

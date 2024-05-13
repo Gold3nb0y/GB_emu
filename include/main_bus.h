@@ -2,7 +2,12 @@
 #define MAIN_BUS_H
 #include "common.h"
 #include "mapper.h"
+#include "lcd.h"
+#include "io_ports.h"
 #include <stdint.h>
+
+#define NUM_REGS 0x20
+
 
 //filled during mapper creation. mapper will handle swapping
 typedef struct main_bus_struct {
@@ -14,6 +19,12 @@ typedef struct main_bus_struct {
     byte* WRAM_BN; //CGB switchable 1-7
     byte* OAM; //stores the display data for all sprites
     mapper_t* mapper;
+    io_reg *io_regs;
+    struct {
+        address DMA_addr;
+        byte  DMA_count;
+        bool  DMA_enabled;
+    } DMA_info;
     byte  IE;
     byte  joypad;
 }main_bus_t;
@@ -25,6 +36,9 @@ byte read_bus(address addr);
 void write_bus(address addr, byte chr);
 address read_bus_addr(address addr);
 void write_bus_addr(address dest, address addr);
-io_reg* init_generic_regs(uint64_t num_regs);
+//returns the number of regs generically allocated
+uint64_t init_generic_regs(mapper_t* mapper, uint64_t num_regs);
+void DMA_tick();
+void start_DMA(void* self, byte data);
 
 #endif

@@ -24,6 +24,55 @@ void reset_cpu(){
     return;
 }
 
+void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func, bool readable, bool writeable){
+    reg->storage = 0;
+    reg->addr = addr;
+    reg->read_callback = read_func;
+    reg->write_callback = write_func;
+    reg->readable = readable;
+    reg->writeable = writeable;
+    return;
+}
+
+uint64_t init_io(main_bus_t *bus){
+    io_reg* ret;
+    uint64_t i = 0;
+    ret = calloc(NUM_REGS, sizeof(io_reg));
+    if(!ret){
+        LOG(ERROR, "calloc");
+        exit(1);
+    }
+    
+    //joypad is special since it is only written to by hardware.
+    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon, true, true);
+    init_io_reg(&ret[i++], DIV, NULL, NULL, true, true);
+
+    //timer stuff, seems complicated ignoring until I am sure I need a timer
+    //init_io_reg(&ret[i++], TIMA, NULL, NULL, true, true);
+    //init_io_reg(&ret[i++], TMA, NULL, NULL, true, true);
+    //init_io_reg(&ret[i++], TAC, NULL, NULL, true, true);
+
+    //all the registers for the display
+    init_io_reg(&ret[i++], LCDC, read_LCDC, write_LCDC, true, true);
+    init_io_reg(&ret[i++], STAT, read_STAT, write_STAT, true, true);
+    init_io_reg(&ret[i++], SCX, read_SCX, write_SCX, true, true);
+    init_io_reg(&ret[i++], SCY, read_SCY, write_SCY, true, true);
+    init_io_reg(&ret[i++], WX, read_WX, write_WX, true, true);
+    init_io_reg(&ret[i++], WY, read_WY, write_WY, true, true);
+    init_io_reg(&ret[i++], LY, read_LY, NULL, true, false);
+    init_io_reg(&ret[i++], LYC, read_LYC, write_LYC, true, true);
+
+    init_io_reg(&ret[i++], DMA, NULL, start_DMA, false, true);
+
+    bus->io_regs = ret;
+
+    return i;
+}
+
+void setup_io_regs(){
+    emu.main_bus->mapper->num_regs = init_io(emu.main_bus);
+}
+
 void create_emulator(char* filename){
     //deref has higher precidence
     bool is_CGB;
@@ -34,6 +83,7 @@ void create_emulator(char* filename){
     select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
     emu.cpu = init_cpu(emu.main_bus);
     emu.ppu = init_ppu();
+    setup_io_regs();
     emu.running = true;
     return;
 }
@@ -45,6 +95,11 @@ void run(){
     while(emu.running){
         if((ticked = exec_program(4)) == 0) emu.running = false; //trigger cpu
         ticks += ticked;
+        ticked *= 2;
+        if(emu.main_bus->DMA_info.DMA_enabled){
+            for(uint64_t i = 0; i < ticked; i++)
+                DMA_tick();
+        }
         if(ticks > 0x10)
             break;
     }

@@ -83,7 +83,6 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     map->write = NULL; 
     map->MCB1.banking_mode_select = false;
     map->MCB1.RAM_enabled = false;
-    map->io_regs = NULL;
     return map;
 }
 
@@ -94,22 +93,20 @@ void release_mapper(mapper_t* map){
     munmap(map->WRAM_banks[0], WRAM_SIZE*map->num_WRAM);
     if(map->EXRAM_banks)
         munmap(map->EXRAM_banks[0], WRAM_SIZE*map->num_EXRAM);
+
     free(map->ROM_banks);
-    LOG(INFO, "unmapped banks");
-    LOGF(DEBUG, "VRAM_BANKS: %p", map->VRAM_banks);
     free(map->VRAM_banks);
     free(map->WRAM_banks);
     if(map->EXRAM_banks)
         free(map->EXRAM_banks);
     free(map->HRAM);
-    if(map->io_regs) free(map->io_regs);
+
     memset(map, 0, sizeof(mapper_t));
     LOG(INFO, "mapper freed");
     return;
 }
 
-void init_MBC1_regs(io_reg* regs){
-
+void init_MBC1_regs(mapper_t* mapper){
     return;
 }
 

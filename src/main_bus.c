@@ -57,26 +57,29 @@ void release_bus(main_bus_t* bus){
     release_mapper(bus->mapper);
     free(bus->mapper);
     free(bus->OAM);
+    if(bus->io_regs) free(bus->io_regs);
     memset(bus, 0, sizeof(main_bus_t));
     free(bus);
     LOG(INFO, "bus freed")
     return;
 }
 
-int check_io_reg(address addr, io_reg* regs){
-    int ret = 0;
-    for(;ret < bus->mapper->num_regs; ret++){
-        if(regs[ret].addr == addr)
+io_reg* check_io_reg(address addr, io_reg* regs){
+    int count = 0;
+    io_reg* ret;
+    for(;count < bus->mapper->num_regs; count++){
+        if(regs[count].addr == addr){
+            ret = &regs[count];
             goto success;
+        }
     }
-    ret = -1;
+    ret = NULL;
 success:
     return ret;
 }
 
 byte read_bus_generic(address addr){
     byte ret = 0;
-    int idx = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
         ret = bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START];
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
@@ -90,12 +93,19 @@ byte read_bus_generic(address addr){
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= IO_START && addr < HRAM_START){
-        idx = check_io_reg(addr, bus->mapper->io_regs);
-        if(idx == -1){
+        io_reg* reg = check_io_reg(addr, bus->io_regs);
+        if(!reg){
             LOG(ERROR, "register not mapper");
-            return 0;
+            return -1;
         }
-        ret = bus->mapper->io_regs[idx].read_callback();
+        if(reg->readable == false){
+            LOG(ERROR, "register not readable");
+            return -1;
+        }
+        if(reg->read_callback)
+            ret = reg->read_callback(reg);
+        else
+            ret = reg->storage;
     } else if(addr >= HRAM_START && addr < IE_REG){
         ret = bus->mapper->HRAM[addr-HRAM_START];
     } else {
@@ -119,12 +129,19 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= IO_START && addr < HRAM_START){
-        int idx = check_io_reg(addr, bus->mapper->io_regs);
-        if(idx == -1){
+        io_reg* reg = check_io_reg(addr, bus->io_regs);
+        if(!reg){
             LOG(ERROR, "register not mapper");
             return;
         }
-        bus->mapper->io_regs[idx].write_callback(data);
+        if(reg->writeable == false){
+            LOG(ERROR, "register not readable");
+            return;
+        }
+        if(reg->write_callback)
+            reg->write_callback(reg, data);
+        else
+            reg->storage = data;
     } else if(addr >= HRAM_START && addr < IE_REG){
         bus->mapper->HRAM[addr-HRAM_START] = data;
     } else {
@@ -172,26 +189,18 @@ void write_bus_addr(address dest, address addr){
     return;
 }
 
-byte joypad_read(){
-    return bus->joypad & 0xF; //read and return only the lower nibble
-};
+//I will start it and update it every clock cycle for run for now
+void start_DMA(void *io_reg, byte data){
+    bus->DMA_info.DMA_addr = data << 8;
+    bus->DMA_info.DMA_count = 0;
+    bus->DMA_info.DMA_enabled = true;
+}
 
-void joypad_write(byte b){
-    bus->joypad |= b & 0xF0; //only write the upper nibble
-};
+void DMA_tick(){
+    byte data = read_bus(bus->DMA_info.DMA_addr);
+    bus->OAM[bus->DMA_info.DMA_count] = data;
 
-io_reg* init_generic_regs(uint64_t num_regs){
-    io_reg* ret;
-    uint i = 0;
-    ret = calloc(num_regs, sizeof(io_reg));
-    if(!ret){
-        LOG(ERROR, "calloc");
-        exit(1);
-    }
-    
-    ret[i].addr = 0xFF00;
-    ret[i].read_callback = joypad_read;
-    ret[i].write_callback = joypad_write;
-
-    return ret;
+    //increment and check for completion
+    if(++bus->DMA_info.DMA_count >= 0xA0)
+        bus->DMA_info.DMA_enabled = false;
 }
