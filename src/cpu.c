@@ -41,6 +41,10 @@ void patch(char* bytecode, size_t size){
 
 CPU_t* init_cpu(main_bus_t* bus){
     memset(&cpu, 0, sizeof(CPU_t));
+    cpu.AF = 0x100;
+    cpu.BC = 0xFF13;
+    cpu.DE = 0x00C1;
+    cpu.HL = 0x8403;
     cpu.SP = 0xFFFE;
     cpu.PC = 0x100;
     cpu.bus = bus;
@@ -118,6 +122,9 @@ static void do_call(){
     addr = 0;
     addr = read_bus_addr(cpu.PC);
     cpu.PC += 2;
+#ifdef DEBUG_CPU
+    LOGF(DEBUG, "calling addr 0x%x\n", addr);
+#endif
     push(cpu.PC);
     cpu.PC = addr;
 }
@@ -502,7 +509,6 @@ static void basic_instr(byte opcode){
             cpu.PC = addr;
             break;
         case LD_MEM_A:
-            LOG(ERROR, "NOT YET IMPLEMENTED");
             addr = read_bus_addr(cpu.PC);
             cpu.PC += 2;            
             write_bus(addr, cpu.A);

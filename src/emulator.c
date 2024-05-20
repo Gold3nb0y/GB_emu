@@ -1,6 +1,7 @@
 #include "emulator.h"
 #include "lcd.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/types.h>
 
 static emulator_t emu;
@@ -9,9 +10,15 @@ void cleanup(int sig){
     LOG(INFO, "cleanup");
     release_bus(emu.main_bus);  
     cleanup_ppu();
-    //exit(0);
+    // exit cleanly
+    exit(0);
     return;
 }
+
+byte read_IF(void* io_reg);
+void write_IF(void* io_reg, byte data);
+byte read_IE(void* io_reg);
+void write_IE(void* io_reg, byte data);
 
 //TODO reset more thouroughly right now just setting things up for a new rom
 void reset_cpu(){
@@ -45,6 +52,8 @@ uint64_t init_io(main_bus_t *bus){
     
     //joypad is special since it is only written to by hardware.
     init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon, true, true);
+    init_io_reg(&ret[i++], SB, read_SB, write_SB, true, true);
+    init_io_reg(&ret[i++], SC, NULL, write_SC, false, true);
     init_io_reg(&ret[i++], DIV, NULL, NULL, true, true);
 
     //timer stuff, seems complicated ignoring until I am sure I need a timer
@@ -52,6 +61,7 @@ uint64_t init_io(main_bus_t *bus){
     //init_io_reg(&ret[i++], TMA, NULL, NULL, true, true);
     //init_io_reg(&ret[i++], TAC, NULL, NULL, true, true);
 
+    init_io_reg(&ret[i++], IF, read_IF, write_IF, true, true);
     //all the registers for the display
     init_io_reg(&ret[i++], LCDC, read_LCDC, write_LCDC, true, true);
     init_io_reg(&ret[i++], STAT, read_STAT, write_STAT, true, true);
@@ -63,6 +73,8 @@ uint64_t init_io(main_bus_t *bus){
     init_io_reg(&ret[i++], LYC, read_LYC, write_LYC, true, true);
 
     init_io_reg(&ret[i++], DMA, NULL, start_DMA, false, true);
+
+    init_io_reg(&ret[i++], IE, read_IE, write_IE, true, true);
 
     bus->io_regs = ret;
 
@@ -83,6 +95,7 @@ void create_emulator(char* filename){
     select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
     emu.cpu = init_cpu(emu.main_bus);
     emu.ppu = init_ppu();
+    //sleep(2); //give the ppu process so time to start up
     setup_io_regs();
     emu.running = true;
     return;
@@ -90,6 +103,7 @@ void create_emulator(char* filename){
 
 void run(){
     uint64_t ticks, ticked;
+    char check;
     ticks = 0;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
@@ -100,11 +114,32 @@ void run(){
             for(uint64_t i = 0; i < ticked; i++)
                 DMA_tick();
         }
-        if(ticks > 0x10)
-            break;
+        if(ticks % 0x10 == 0){
+            dump_cpu();
+            check = getchar();
+            if(check != '\n') break;
+        }
+        //do some kind of interupt handling here after the PPU and CPU have been ticked
     }
+    LOG(INFO, "Ending ROM execution");
     getchar();
     cleanup(0);
+}
+
+byte read_IF(void* io_reg){
+    return emu.IF;
+}
+
+void write_IF(void* io_reg, byte data){
+    emu.IF = data;
+}
+
+byte read_IE(void* io_reg){
+    return emu.IE;
+}
+
+void write_IE(void* io_reg, byte data){
+    emu.IE = data;
 }
 
 emulator_t* get_emu(){

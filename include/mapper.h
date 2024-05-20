@@ -27,6 +27,7 @@ typedef struct mapper_struct{
     byte cur_EXRAM;
     byte cur_WRAM;
     uint num_regs;
+
     union __attribute__((aligned(16))) {
         struct {
             bool RAM_enabled;
@@ -47,6 +48,8 @@ void release_mapper(mapper_t* mapper);
 byte read_MBC1(address addr);
 void write_MBC1(address addr, byte data);
 void init_MBC1_regs(mapper_t* mapper);
+byte read_rom_only(address addr);
+void write_rom_only(address addr, byte data);
 
 //for internal use;
 //f

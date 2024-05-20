@@ -17,7 +17,7 @@ byte read_STAT(void* io_reg){
 }
 
 void write_STAT(void* io_reg, byte data){
-    ppu.STAT.data = data;
+    ppu.STAT.data |= data & 0xf8;
 }
 
 byte read_SCX(void* io_reg){

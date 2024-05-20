@@ -74,9 +74,13 @@ enum {
     SVBK	= 0xFF70,
     PCM12	= 0xFF76,
     PCM34	= 0xFF77,
+    IE      = 0xFFFF
 };
 
 byte read_joycon(void *self);
 void write_joycon(void *self, byte data);
+byte read_SB(void *self);
+void write_SB(void *self, byte data);
+void write_SC(void *self, byte data);
 
 #endif

@@ -25,7 +25,6 @@ typedef struct main_bus_struct {
         byte  DMA_count;
         bool  DMA_enabled;
     } DMA_info;
-    byte  IE;
     byte  joypad;
 }main_bus_t;
 

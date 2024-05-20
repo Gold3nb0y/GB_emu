@@ -110,6 +110,26 @@ void init_MBC1_regs(mapper_t* mapper){
     return;
 }
 
+byte read_rom_only(address addr){
+    if(addr < VRAM_START){
+     return map->ROM_banks[0][addr];
+    } else if(addr >= EXRAM_START && addr < WRAM0_START){
+     return map->VRAM_banks[0][addr-EXRAM_START];
+    }
+    LOG(ERROR, "Invalid address");
+    exit(1);
+}
+
+void write_rom_only(address addr, byte data){
+    if(addr < VRAM_START){
+     map->ROM_banks[0][addr] = data;
+    } else if(addr >= EXRAM_START && addr < WRAM0_START){
+     map->VRAM_banks[0][addr-EXRAM_START] = data;
+    }
+    LOG(ERROR, "Invalid address");
+    exit(1);
+}
+
 //https://gbdev.io/pandocs/MBC1.html
 byte read_MBC1(address addr){
     byte ret = 0xFF; //for now return -1 if nothing is read

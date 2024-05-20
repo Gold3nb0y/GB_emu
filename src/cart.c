@@ -49,12 +49,17 @@ void load_cart(cart_t* cart, char* filename){
 //determine the type of cartridge and set mapper functions
 void select_mapper(uint8_t cart_type, mapper_t *mapper){
     switch(cart_type){
+        case ROM_ONLY:
+            LOG(INFO, "Cart type is ROM_ONLY");
+            //no need to assign a mapper function in this case
+            mapper->read = read_rom_only;
+            mapper->write = write_rom_only;
+            break;
         case MBC1:
             LOG(INFO, "Cart type is MBC1");
             mapper->read = read_MBC1;
             mapper->write = write_MBC1;
             break;
-        case ROM_ONLY:
         case MBC1_RAM:
         case MBC1_RAM_BATTERY:
         case MBC2:
@@ -81,7 +86,7 @@ void select_mapper(uint8_t cart_type, mapper_t *mapper){
         case BANDAI_TAMA5:
         case HuC3:
         case HuC1_RAM_BATTERY:
-            LOG(ERROR, "Cartridge not supported")
+            LOGF(ERROR, "Cartridge 0x%x not supported\n", cart_type);
             exit(1);
         default:
             LOG(ERROR, "Cartridge not recognized");

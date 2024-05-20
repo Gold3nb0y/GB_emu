@@ -16,6 +16,8 @@ typedef struct emulator_struct{
     PPU_t* ppu;
     cart_t cart;
     bool running;
+    byte IF; //interupt flag
+    byte IE; //interupt enable
 }emulator_t;
 
 

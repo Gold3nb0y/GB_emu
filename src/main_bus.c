@@ -38,6 +38,7 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* file
     num_EXRAM = parse_ram(val_RAM);
     bus->mapper = create_mapper(num_ROM, num_VRAM, num_EXRAM, num_WRAM, filename); 
     //init values for the bus, later I may want to place these inside of the mapper, but not sure yet
+    //mapper will control handling with banks for swapping, but I will allow the bus to read from here
     bus->ROM_B0 = bus->mapper->ROM_banks[0];
     bus->ROM_BN = bus->mapper->ROM_banks[1];
     bus->VRAM = bus->mapper->VRAM_banks[0];
@@ -81,27 +82,30 @@ success:
 byte read_bus_generic(address addr){
     byte ret = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
-        ret = bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START];
+        ret = bus->VRAM[addr-VRAM_START];
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
-        ret = bus->mapper->WRAM_banks[0][addr-WRAM0_START];
+        ret = bus->WRAM_B0[addr-WRAM0_START];
     } else if(addr >= WRAMN_START && addr < WRAMN_END){
-        ret = bus->mapper->WRAM_banks[bus->mapper->cur_WRAM][addr-WRAMN_START];
+        ret = bus->WRAM_BN[addr-WRAMN_START];
     } else if(addr >= WRAMN_END && addr < OAM_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= OAM_START && addr < OAM_END){
-        LOG(ERROR, "unimplemented");
+        ret = bus->OAM[addr-OAM_START];
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
-    } else if(addr >= IO_START && addr < HRAM_START){
+    } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
         io_reg* reg = check_io_reg(addr, bus->io_regs);
         if(!reg){
-            LOG(ERROR, "register not mapper");
+            LOGF(ERROR, "{READ} register 0x%x not mapped\n", addr);
             return -1;
         }
         if(reg->readable == false){
             LOG(ERROR, "register not readable");
             return -1;
         }
+#ifdef DEBUG_BUS
+        LOGF(DEBUG, "{READ} register 0x%x\n", addr);
+#endif
         if(reg->read_callback)
             ret = reg->read_callback(reg);
         else
@@ -109,35 +113,37 @@ byte read_bus_generic(address addr){
     } else if(addr >= HRAM_START && addr < IE_REG){
         ret = bus->mapper->HRAM[addr-HRAM_START];
     } else {
-        //Interupt enable
-        LOG(ERROR, "unimplemented");
+        LOGF(ERROR, "addr 0x%x is not mapped\n", addr);
     }
     return ret;
 }
 
 void write_bus_generic(address addr, byte data){
     if(addr >= VRAM_START && addr < EXRAM_START){
-        bus->mapper->VRAM_banks[bus->mapper->cur_VRAM][addr-VRAM_START] = data;
+        bus->VRAM[addr-VRAM_START] = data;
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
-        bus->mapper->WRAM_banks[0][addr-WRAM0_START] = data;
+        bus->WRAM_B0[addr-WRAM0_START] = data;
     } else if(addr >= WRAMN_START && addr < WRAMN_END){
-        bus->mapper->WRAM_banks[bus->mapper->cur_WRAM][addr-WRAMN_START] = data;
+        bus->WRAM_BN[addr-WRAMN_START] = data;
     } else if(addr >= WRAMN_END && addr < OAM_START){
         LOG(ERROR, "undocumented memory access");
     } else if(addr >= OAM_START && addr < OAM_END){
-        LOG(ERROR, "unimplemented");
+        bus->OAM[addr-OAM_START] = data;
     } else if(addr >= OAM_END && addr < IO_START){
         LOG(ERROR, "undocumented memory access");
-    } else if(addr >= IO_START && addr < HRAM_START){
+    } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
         io_reg* reg = check_io_reg(addr, bus->io_regs);
         if(!reg){
-            LOG(ERROR, "register not mapper");
+            LOGF(ERROR, "{WRITE} register 0x%x not mapped\n", addr);
             return;
         }
         if(reg->writeable == false){
             LOG(ERROR, "register not readable");
             return;
         }
+#ifdef DEBUG_BUS
+        LOGF(DEBUG, "{write} register 0x%x with data 0x%x\n", addr, data);
+#endif
         if(reg->write_callback)
             reg->write_callback(reg, data);
         else
@@ -145,8 +151,7 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= HRAM_START && addr < IE_REG){
         bus->mapper->HRAM[addr-HRAM_START] = data;
     } else {
-        //Interupt enable
-        LOG(ERROR, "unimplemented");
+        LOGF(ERROR, "addr 0x%x is not mapped\n", addr);
     }
 }
 
@@ -165,9 +170,12 @@ byte read_bus(address addr){
 }
 
 address read_bus_addr(address addr){
-    address ret;
-    ret = read_bus(addr) << 8;
-    ret |= read_bus(addr+1);
+    address ret = 0;
+    ret = read_bus(addr);
+    ret |= read_bus(addr+1) << 8;
+#ifdef DEBUG_BUS
+    LOGF(DEBUG, "read addr 0x%x\n", ret);
+#endif
     return ret;
 }
 
@@ -184,8 +192,8 @@ void write_bus(address addr, byte chr){
 }
 
 void write_bus_addr(address dest, address addr){
-    write_bus(dest, addr >> 8);
-    write_bus(dest+1, addr & 0xff);
+    write_bus(dest, addr & 0xff);
+    write_bus(dest+1, addr >> 8);
     return;
 }
 
