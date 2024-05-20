@@ -1,6 +1,7 @@
 #ifndef EMU_H
 #define EMU_H
 #include "common.h"
+#include "gb_debugger.h"
 #include "cpu.h"
 #include "io_ports.h"
 #include "ppu.h"
@@ -29,4 +30,5 @@ void create_emulator(char* filename);
 void run();
 void test_cpu();
 emulator_t* get_emu();
+
 #endif

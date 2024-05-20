@@ -39,5 +39,7 @@ void write_bus_addr(address dest, address addr);
 uint64_t init_generic_regs(mapper_t* mapper, uint64_t num_regs);
 void DMA_tick();
 void start_DMA(void* self, byte data);
+byte read_VBK(void* self);
+void write_VBK(void* self, byte data);
 
 #endif

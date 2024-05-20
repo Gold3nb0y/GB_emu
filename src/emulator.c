@@ -72,6 +72,7 @@ uint64_t init_io(main_bus_t *bus){
     init_io_reg(&ret[i++], LY, read_LY, NULL, true, false);
     init_io_reg(&ret[i++], LYC, read_LYC, write_LYC, true, true);
 
+    init_io_reg(&ret[i++], VBK, read_VBK, write_VBK, true, true);
     init_io_reg(&ret[i++], DMA, NULL, start_DMA, false, true);
 
     init_io_reg(&ret[i++], IE, read_IE, write_IE, true, true);
@@ -101,12 +102,16 @@ void create_emulator(char* filename){
     return;
 }
 
+
 void run(){
     uint64_t ticks, ticked;
     char check;
     ticks = 0;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
+#ifndef NATTACH_DB
+        start_debugger(emu.main_bus, emu.cpu);
+#else
         if((ticked = exec_program(4)) == 0) emu.running = false; //trigger cpu
         ticks += ticked;
         ticked *= 2;
@@ -114,11 +119,12 @@ void run(){
             for(uint64_t i = 0; i < ticked; i++)
                 DMA_tick();
         }
-        if(ticks % 0x10 == 0){
-            dump_cpu();
-            check = getchar();
-            if(check != '\n') break;
-        }
+#endif
+        //if(ticks % 0x100 == 0){
+        //    dump_cpu();
+        //    check = getchar();
+        //    if(check != '\n') break;
+        //}
         //do some kind of interupt handling here after the PPU and CPU have been ticked
     }
     LOG(INFO, "Ending ROM execution");

@@ -50,7 +50,6 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* file
     bus->WRAM_BN = bus->mapper->WRAM_banks[1];
 
     bus->OAM = Malloc(0xa0);
-    bus->IE = 0xff; //still not sure of the init value
     return bus;
 }
 
@@ -88,11 +87,11 @@ byte read_bus_generic(address addr){
     } else if(addr >= WRAMN_START && addr < WRAMN_END){
         ret = bus->WRAM_BN[addr-WRAMN_START];
     } else if(addr >= WRAMN_END && addr < OAM_START){
-        LOG(ERROR, "undocumented memory access");
+        LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
     } else if(addr >= OAM_START && addr < OAM_END){
         ret = bus->OAM[addr-OAM_START];
     } else if(addr >= OAM_END && addr < IO_START){
-        LOG(ERROR, "undocumented memory access");
+        LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
     } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
         io_reg* reg = check_io_reg(addr, bus->io_regs);
         if(!reg){
@@ -126,15 +125,15 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= WRAMN_START && addr < WRAMN_END){
         bus->WRAM_BN[addr-WRAMN_START] = data;
     } else if(addr >= WRAMN_END && addr < OAM_START){
-        LOG(ERROR, "undocumented memory access");
+        LOGF(ERROR, "{WRITE} undocumented memory access 0x%x\n", addr);
     } else if(addr >= OAM_START && addr < OAM_END){
         bus->OAM[addr-OAM_START] = data;
     } else if(addr >= OAM_END && addr < IO_START){
-        LOG(ERROR, "undocumented memory access");
+        LOGF(ERROR, "{WRITE} undocumented memory access 0x%x\n", addr);
     } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
         io_reg* reg = check_io_reg(addr, bus->io_regs);
         if(!reg){
-            LOGF(ERROR, "{WRITE} register 0x%x not mapped\n", addr);
+            LOGF(ERROR, "{WRITE} register 0x%x not mapped", addr);
             return;
         }
         if(reg->writeable == false){
@@ -210,4 +209,13 @@ void DMA_tick(){
 
     if(bus->DMA_info.DMA_count >= 0xA0)
         bus->DMA_info.DMA_enabled = false;
+}
+
+byte read_VBK(void* self){
+    return bus->mapper->cur_VRAM;
+}
+
+void write_VBK(void* self, byte data){
+    bus->VRAM = bus->mapper->VRAM_banks[data];
+    bus->mapper->cur_VRAM = data;
 }

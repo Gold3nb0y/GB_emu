@@ -23,10 +23,14 @@ byte read_SB(void *self){
 }
 
 void write_SB(void *self, byte data){
+    LOG(INFO, "WRITE SB");
+    getchar();
     SB_data = data;
 }
 
 void write_SC(void *self, byte data){
+    LOG(INFO, "WRITE SC");
+    getchar();
     if(data == 0x81)
         printf("%c", SB_data);
     return;

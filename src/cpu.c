@@ -195,6 +195,7 @@ static void prefixed_instr(){
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.Z = *reg ? 1 : 0;
+            break;
         case SRA:
             cpu.FLAGS.C = *reg & 1;
             *reg >>= 1;
@@ -202,10 +203,12 @@ static void prefixed_instr(){
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.Z = *reg ? 1 : 0;
+            break;
         case SWAP:
             tmp_reg = *reg >> 4;
             *reg <<= 4;
             *reg |= tmp_reg;
+            break;
         case SRL:
             cpu.FLAGS.C = *reg & 1;
             *reg >>= 1;
@@ -213,6 +216,7 @@ static void prefixed_instr(){
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.Z = *reg ? 1 : 0;
+            break;
         default:
             bit = (opcode >> 3) & 7;
             if(opcode >= BIT && opcode < RES){
@@ -224,7 +228,7 @@ static void prefixed_instr(){
             } else if (opcode >= SET) {
                 *reg |= 1 << bit;
             } else {
-                LOG(ERROR, "enexpected prefixed opcode")
+                LOGF(ERROR, "unexpected prefixed opcode 0x%x\n", opcode);
             }
             break;
     }
@@ -250,8 +254,8 @@ static void basic_instr(byte opcode){
         case LD_HL: 
         case LD_SP: 
             get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 = read_bus(cpu.PC++);
-            *temp_reg16 = (*temp_reg16 << 8) + read_bus(cpu.PC++);
+            *temp_reg16 = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
             break;
         case STR_BC:
         case STR_DE:
@@ -533,9 +537,19 @@ static void basic_instr(byte opcode){
         case LD_SP_HL:
             cpu.SP = cpu.HL;
             break;
+        case STR_nn_SP:
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            write_bus_addr(addr, cpu.SP);
+            break;
+        case STOP: //break until a button is pressed
+            LOG(INFO, "Stopping execution until button is pressed, STOP INST");
+            getchar();
+            break;
 
         default:
-            LOG(ERROR, "something went wrong");
+            LOGF(ERROR, "something went wrong opcode: 0x%x\n", opcode);
+            dump_cpu();
     }
 }
 
@@ -603,7 +617,8 @@ static void control_flow(byte opcode){
     } else if (op == PUSH) {
         push(*reg);
     } else if ((op & 7) == RST) {
-        LOG(ERROR, "Not implemented");
+        push(cpu.PC);
+        cpu.PC = ((opcode >> 3) & 7)*8;
     } else if ((op & 7) == IMMI_ARI) {
         logic_arith_8bit(op & 7, read_bus(cpu.PC));
         cpu.PC++;
@@ -626,6 +641,7 @@ void dump_cpu(){
 
 uint64_t exec_inst(byte opcode){
     uint8_t* temp_reg;
+    uint8_t tmp_val;
 #ifdef DEBUG_CPU
     LOGF(DEBUG,"OPCODE: 0x%02x",opcode);
     dump_cpu();
@@ -643,8 +659,10 @@ uint64_t exec_inst(byte opcode){
             break;
         case 2: //arithmetic and bitwise operations
             get_8bit_register(opcode, 0, &temp_reg);
-            if(!temp_reg)
-                *temp_reg = read_bus(cpu.HL);
+            if(temp_reg == NULL){
+                tmp_val = read_bus(cpu.HL);
+                temp_reg = &tmp_val;
+            }
             logic_arith_8bit(opcode >> 3 & 7, *temp_reg);
             break;
         case 3: //control flow, can filter some out so I figure it's worth it may change later
@@ -700,7 +718,7 @@ static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
             *reg = &cpu.L;
             break;
         case MEM:
-            *reg = 0;
+            *reg = NULL;
             break;
         case A:
             *reg = &cpu.A;
@@ -749,7 +767,16 @@ static void get_16bit_register_ALT(byte opcode, uint8_t offset, uint16_t** reg){
 //register to register or memory to register load
 static void ld_rr(byte opcode){
     uint8_t *dest, *src;
+    uint8_t tmp;
     get_8bit_register(opcode, 3, &dest);
     get_8bit_register(opcode, 0, &src);
-    *dest = *src;
+    if(src == NULL){
+        tmp = read_bus(cpu.HL);
+        src = &tmp;
+    }
+    if(dest == NULL){
+        write_bus(cpu.HL, *src);
+    } else {
+        *dest = *src;
+    }
 }

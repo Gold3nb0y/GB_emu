@@ -1,6 +1,7 @@
 #ifndef OPCODES_H
 #define OPCODES_H
 
+#include <stdint.h>
 enum opcodes{
     NOP = 0,
     LD_BC,
@@ -10,7 +11,7 @@ enum opcodes{
     DEC_B,
     LD_B,
     RLCA,
-    LD_MEM_nn_SP,
+    STR_nn_SP,
     ADD_HL_BC,
     LD_A_BC,
     DEC_BC,
@@ -121,7 +122,7 @@ enum opcodes{
     LD_MEM_HL_H,
     LD_MEM_HL_L,
     HALT,
-    LD_LEM_HL_A,
+    LD_MEM_HL_A,
     LD_A_B,
     LD_A_C,
     LD_A_D,
@@ -282,5 +283,12 @@ enum REGS_16 {
 #define BIT 0x40
 #define RES 0x80
 #define SET 0xC0
+
+typedef struct{
+    uint8_t opcode;
+    char instr_fmt[0x18];
+    uint8_t size;
+} instr;
+
 
 #endif
