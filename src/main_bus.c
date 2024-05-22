@@ -81,6 +81,8 @@ success:
 byte read_bus_generic(address addr){
     byte ret = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
+        if(bus->mem_perms == OAM_VRAM_BLOCKED)
+            return 0xFF; //junk
         ret = bus->VRAM[addr-VRAM_START];
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
         ret = bus->WRAM_B0[addr-WRAM0_START];
@@ -89,6 +91,8 @@ byte read_bus_generic(address addr){
     } else if(addr >= WRAMN_END && addr < OAM_START){
         LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
     } else if(addr >= OAM_START && addr < OAM_END){
+        if(bus->mem_perms != MEM_FREE)
+            return 0xFF; //junk
         ret = bus->OAM[addr-OAM_START];
     } else if(addr >= OAM_END && addr < IO_START){
         LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
@@ -119,6 +123,8 @@ byte read_bus_generic(address addr){
 
 void write_bus_generic(address addr, byte data){
     if(addr >= VRAM_START && addr < EXRAM_START){
+        if(bus->mem_perms == OAM_VRAM_BLOCKED)
+            return;
         bus->VRAM[addr-VRAM_START] = data;
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
         bus->WRAM_B0[addr-WRAM0_START] = data;
@@ -127,6 +133,8 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= WRAMN_END && addr < OAM_START){
         LOGF(ERROR, "{WRITE} undocumented memory access 0x%x\n", addr);
     } else if(addr >= OAM_START && addr < OAM_END){
+        if(bus->mem_perms != MEM_FREE)
+            return; //junk
         bus->OAM[addr-OAM_START] = data;
     } else if(addr >= OAM_END && addr < IO_START){
         LOGF(ERROR, "{WRITE} undocumented memory access 0x%x\n", addr);

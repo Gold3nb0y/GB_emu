@@ -95,7 +95,7 @@ void create_emulator(char* filename){
     emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
     select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
     emu.cpu = init_cpu(emu.main_bus);
-    emu.ppu = init_ppu();
+    emu.ppu = init_ppu(&emu.main_bus->mem_perms);
     //sleep(2); //give the ppu process so time to start up
     setup_io_regs();
     emu.running = true;

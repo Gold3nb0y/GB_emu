@@ -31,6 +31,10 @@
 
 #define HRAM_SIZE 0x7e
 
+#define MEM_FREE 0
+#define OAM_BLOCKED 1
+#define OAM_VRAM_BLOCKED 2
+
 //offer these up to the entire system
 void* Malloc(ssize_t size);
 uint8_t* Mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offset);

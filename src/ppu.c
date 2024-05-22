@@ -200,13 +200,18 @@ void scanline(uint16_t scanline){
 }
 
 //this might change later if the piping doesn't work out, but for now I think this looks good
-PPU_t* init_ppu(){
+PPU_t* init_ppu(byte* perm_ptr){
     int fifo[2];
     pid_t pid = -1;
     if(pipe(fifo) == -1){
         LOG(ERROR, "Failed to create pipe for ppu and lcd");
         exit(1);
     }
+    ppu.mem_perm_ptr = perm_ptr;
+    *ppu.mem_perm_ptr = MEM_FREE;
+    ppu.STAT.flags.PPU_mode = 1; //start in mode 0;
+    ppu.dot_counter = 0; //can change later
+    ppu.LY = 0x90; //start in vblank mode
 #ifndef HEADLESS
     pid = fork();
     if(!pid){
@@ -225,12 +230,51 @@ PPU_t* init_ppu(){
     return &ppu;
 }
 
-uint64_t ppu_cycle(uint64_t cycles, int64_t ticks){
-    for(;ticks < 0; ticks--){
-        
-        cycles++;
+void ppu_tick(){
+    ppu.dot_counter++; //used to keep track of progress internally
+    switch(ppu.STAT.flags.PPU_mode){
+        case HBLANK:
+            if(ppu.dot_counter == DOTS_PER_SCANLINE){
+                ppu.LY++;
+                ppu.dot_counter = 0;
+                if(ppu.LY == VBLANK_START){
+                    ppu.STAT.flags.PPU_mode = VBLANK;
+                } else {
+                    ppu.STAT.flags.PPU_mode = OAM_SCAN;
+                }
+            }
+            break;
+        case VBLANK:
+            if(ppu.dot_counter == DOTS_PER_SCANLINE){
+                ppu.LY++;
+                ppu.dot_counter = 0;
+                if(ppu.LY == VBLANK_END){
+                    ppu.LY = 0;
+                    *ppu.mem_perm_ptr = OAM_BLOCKED;
+                    ppu.STAT.flags.PPU_mode = OAM_SCAN;
+                }
+            }
+            break;
+        case OAM_SCAN:
+            //last cycle of OAM SCAN
+            if(ppu.dot_counter + 1 == DRAW_START){
+                ppu.STAT.flags.PPU_mode = DRAW;
+                *ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
+            }
+            break;
+        case DRAW:
+            //in reality the size of DRAW will very
+            if(ppu.dot_counter + 1 == 0x100){
+                ppu.STAT.flags.PPU_mode = HBLANK;
+                *ppu.mem_perm_ptr = MEM_FREE;
+            }
+            break;
+        default:
+            LOG(ERROR, "Incorrect ppu mode detected");
+            exit(1);
+            break;
     }
-    return cycles;
+    return;
 }
 
 int cleanup_ppu(){

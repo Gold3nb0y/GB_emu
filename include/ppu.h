@@ -21,6 +21,18 @@
 //each row is determend by combining the first and second bytes
 #define PIXEL_ROW_SIZE 2
 #define PIXEL_TILE_SIZE 8*PIXEL_ROW_SIZE //8x8 x 2bits per pixel / 8 total space = 16bytes
+                                         //
+#define DOTS_PER_SCANLINE 456
+#define VBLANK_START 144
+#define VBLANK_END 154
+#define DRAW_START 80
+                                         //
+enum {
+    HBLANK = 0,
+    VBLANK,
+    OAM_SCAN,
+    DRAW,
+};
 
 typedef struct object{
     uint8_t Y;
@@ -33,6 +45,7 @@ typedef struct object{
  * The PPU struct is responsible for maintaining the state of the screen;
  * background: 32x32 tiles wide
  * window: the 2nd layer that can cover the background
+ * memory_permissions a pointer into main_bus used to disable OAM and VRAM
  * WX: X-cord of the window
  * WY: Y-cord of the window
  * SCX: X-cord of the viewport
@@ -47,6 +60,7 @@ typedef struct object{
 typedef struct PPU_struct{
     pixel_tile background[0x20][0x20];
     pixel_tile window[0x20][0x20];
+    byte* mem_perm_ptr;
     uint8_t WX;
     uint8_t WY;
     uint8_t SCX;
@@ -79,13 +93,13 @@ typedef struct PPU_struct{
             uint8_t PPU_mode: 2;
         } flags;
     } STAT;
-    uint8_t mode;
-    uint32_t current_cycle;
+    uint16_t dot_counter; //to keep track of mode and adjust for pentalites
     int LCD_fifo_write; //I want to use a pipe to emulate the fifo pipe to the LCD
     pid_t lcd_pid;
 } PPU_t;
 
-PPU_t* init_ppu();
+PPU_t* init_ppu(byte* perm_ptr);
+void ppu_tick();
 int cleanup_ppu();
 byte read_LCDC(void* io_reg);
 void write_LCDC(void* io_reg, byte data);

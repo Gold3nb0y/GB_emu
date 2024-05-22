@@ -29,7 +29,7 @@ CPU_t cpu;
 #define POP 1
 #define PUSH 5
 #define IMMI_ARI 6
-#define RST 6
+#define RST 7
 
 //for testing
 void patch(char* bytecode, size_t size){
@@ -117,22 +117,11 @@ static void do_ret(){
     pop(&cpu.PC); //should just be the same as popping a regular register
 }
 
-static void do_call(){
-    uint16_t addr;
-    addr = 0;
-    addr = read_bus_addr(cpu.PC);
-    cpu.PC += 2;
+static void do_call(address addr){
 #ifdef DEBUG_CPU
     LOGF(DEBUG, "calling addr 0x%x\n", addr);
 #endif
     push(cpu.PC);
-    cpu.PC = addr;
-}
-
-static void do_jmp_immi(){
-    uint16_t addr;
-    addr = 0;
-    addr = read_bus_addr(cpu.PC);
     cpu.PC = addr;
 }
 
@@ -238,7 +227,7 @@ static void prefixed_instr(){
 }
 
 //handle the remaining instructions that are easier to handle individually
-static void basic_instr(byte opcode){
+static void misc_instr(byte opcode){
     uint16_t *temp_reg16;
     uint8_t *temp_reg8;
     uint16_t addr; 
@@ -437,20 +426,27 @@ static void basic_instr(byte opcode){
         case JR_NC:
             rel_off = read_bus(cpu.PC++);
             if(!cpu.FLAGS.C) cpu.PC += rel_off;
+            break;
         case JR_C:
             rel_off = read_bus(cpu.PC++);
             if(cpu.FLAGS.C) cpu.PC += rel_off;
+            break;
         case RET_NZ:
             if(!cpu.FLAGS.Z) do_ret();
             break;
         case JNZ:
-            if(!cpu.FLAGS.Z) do_jmp_immi();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(!cpu.FLAGS.Z) cpu.PC = addr;
             break;
         case JMP:
-            if(!cpu.FLAGS.Z) do_jmp_immi();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC = addr;
             break;
         case CALL_NZ:
-            if(!cpu.FLAGS.Z) do_call();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(!cpu.FLAGS.Z) do_call(addr);
             break;
         case RET_Z:
             if(cpu.FLAGS.Z) do_ret();
@@ -459,32 +455,52 @@ static void basic_instr(byte opcode){
             do_ret();
             break;
         case JZ:
-            if(cpu.FLAGS.Z) do_jmp_immi();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(cpu.FLAGS.Z) cpu.PC = addr;
             break;
         case CB_PREFIX:
             prefixed_instr();
             break;
         case CALL_Z:
-            if(cpu.FLAGS.Z) do_call();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(cpu.FLAGS.Z) do_call(addr);
             break;
         case CALL:
-            do_call();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            do_call(addr);
             break;
         case RET_NC:
             if(!cpu.FLAGS.C) do_ret();
             break;
+        case JNC:
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(!cpu.FLAGS.C) cpu.PC = addr;
+            break;
         case CALL_NC:
-            if(!cpu.FLAGS.C) do_call();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(!cpu.FLAGS.C) do_call(addr);
             break;
         case RET_C:
-            if(cpu.FLAGS.C) do_call();
+            if(cpu.FLAGS.C) do_ret();
             break;
         case RETI:
             do_ret();
             cpu.IME = 1;
             break;
+        case JC:
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(cpu.FLAGS.C) cpu.PC = addr;
+            break;
         case CALL_C:
-            if(cpu.FLAGS.C) do_call();
+            addr = read_bus_addr(cpu.PC);
+            cpu.PC += 2;
+            if(cpu.FLAGS.C) do_call(addr);
             break;
         case STR_DIR_n:
             tmp_byte = read_bus(cpu.PC);
@@ -509,8 +525,7 @@ static void basic_instr(byte opcode){
             addr = cpu.SP + rel_off;
             break;
         case JMP_HL:
-            addr = read_bus_addr(cpu.HL);
-            cpu.PC = addr;
+            cpu.PC = cpu.HL;
             break;
         case LD_MEM_A:
             addr = read_bus_addr(cpu.PC);
@@ -546,7 +561,6 @@ static void basic_instr(byte opcode){
             LOG(INFO, "Stopping execution until button is pressed, STOP INST");
             getchar();
             break;
-
         default:
             LOGF(ERROR, "something went wrong opcode: 0x%x\n", opcode);
             dump_cpu();
@@ -620,10 +634,10 @@ static void control_flow(byte opcode){
         push(cpu.PC);
         cpu.PC = ((opcode >> 3) & 7)*8;
     } else if ((op & 7) == IMMI_ARI) {
-        logic_arith_8bit(op & 7, read_bus(cpu.PC));
+        logic_arith_8bit((opcode >> 3) & 7, read_bus(cpu.PC));
         cpu.PC++;
     } else {
-        basic_instr(opcode);
+        misc_instr(opcode);
     }
     return;
 }
@@ -651,7 +665,7 @@ uint64_t exec_inst(byte opcode){
     //This allows me to use the same code to run some instructions
     switch(opcode >> 6){
         case 0: //basic instructions
-            basic_instr(opcode);
+            misc_instr(opcode);
             break;
         case 1: //register loads
             if(opcode == HALT) return 0; //stop the system clock

@@ -25,7 +25,8 @@ typedef struct main_bus_struct {
         byte  DMA_count;
         bool  DMA_enabled;
     } DMA_info;
-    byte  joypad;
+    byte joypad;
+    byte mem_perms; //only affect VRAM and OAM
 }main_bus_t;
 
 

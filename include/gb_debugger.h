@@ -8,6 +8,7 @@
 #include <main_bus.h>
 #include <stdint.h>
 #include <opcodes.h>
+#include <ppu.h>
 
 typedef struct {
     main_bus_t* bus;

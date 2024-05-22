@@ -71,10 +71,16 @@ void examine(char *cmd){
     return;
 }
 
+void step(){
+    exec_program(1);
+    for(int i = 0; i < 8; i++)
+        ppu_tick(); //tick ppu 8 times per cpu cycle
+}
+
 void run_until_break(){
     uint64_t i;
     for(;;){
-        exec_program(1);
+        step();
         //a bit of overhead, but nothing too bad not worrying about DMA right now
         for(i = 0; i < db.num_bp; i++){
 
@@ -83,7 +89,7 @@ void run_until_break(){
     }
 }
 
-void disassemble(uint64_t count){
+void disassemble(address addr, uint64_t count){
     uint16_t step;
     uint64_t i;
     byte b;
@@ -92,16 +98,16 @@ void disassemble(uint64_t count){
     byte opcode;
     step = i = 0;
     for(; i < count; i++){
-        opcode = read_bus(db.cpu->PC + step);
+        opcode = read_bus(addr + step);
         memcpy(&inst, &instr_table[opcode], sizeof(instr));
-        printf("0x%04x: ", db.cpu->PC + step);
+        printf("0x%04x: ", addr + step);
         step++;
         if(inst.size == 2){
-            b = read_bus(db.cpu->PC + step++);
+            b = read_bus(addr + step++);
             printf(inst.instr_fmt, b);
             puts("");
         } else if(inst.size == 3){
-            a = read_bus_addr(db.cpu->PC + step);
+            a = read_bus_addr(addr + step);
             printf(inst.instr_fmt, a);
             puts("");
             step += 2;
@@ -113,7 +119,7 @@ void disassemble(uint64_t count){
 }
 
 #define SET_PRE "\033[92;1;4m"
-#define SUF "\033[4m"
+#define SUF "\033[m"
 
 void status(){
     puts("-------------CPU contents-------------");
@@ -125,20 +131,23 @@ void status(){
     printf("SP: 0x%04x\n",db.cpu->SP);
     printf("FLAGS: ");
     if(db.cpu->FLAGS.Z) printf(SET_PRE);
-    printf("ZERO ");
+    printf("ZERO");
     if(db.cpu->FLAGS.Z) printf(SUF);
+    printf(" ");
     if(db.cpu->FLAGS.N) printf(SET_PRE);
-    printf("NEG ");
+    printf("NEG");
     if(db.cpu->FLAGS.N) printf(SUF);
+    printf(" ");
     if(db.cpu->FLAGS.C) printf(SET_PRE);
-    printf("CARRY ");
+    printf("CARRY");
     if(db.cpu->FLAGS.C) printf(SUF);
+    printf(" ");
     if(db.cpu->FLAGS.HC) printf(SET_PRE);
-    printf("HALF ");
+    printf("HALF");
     if(db.cpu->FLAGS.HC) printf(SUF);
     puts("");
     puts("-------------DISASSEMBLY--------------");
-    disassemble(10);
+    disassemble(db.cpu->PC, 10);
     puts("---------------STACK------------------");
     for(uint i = 0; i < 10; i += 2){
         printf("0x%04x: 0x%04x\n", db.cpu->SP + i, read_bus_addr(db.cpu->SP + i));
@@ -149,28 +158,40 @@ void status(){
 void debug(){
     char* cmd;
     bool done = false;
+    uint64_t count = 0;
+    address addr;
 
+    status();
     while(!done){
-        status();
         cmd = read_command();
         switch(cmd[0]){
+            case 'a': 
+                sscanf(cmd, "a %hx %ld", &addr, &count);
+                if(count < 0x100)
+                    disassemble(addr, count);
+                break;
             case 'b': 
                 break_point(cmd);
+                break;
+            case 'c':
+                run_until_break();
+                status();
                 break;
             case 'd':
                 delete_break(cmd);
                 break;
-            case 'x':
-                examine(cmd);
-                break;
-            case 'c':
-                run_until_break();
+            case 'i':
+                status();
                 break;
             case 's':
-                exec_program(1);
+                step();
+                status();
                 break;
             case 'q':
                 done = true;
+                break;
+            case 'x':
+                examine(cmd);
                 break;
             default:
                 puts("Invalid command");
@@ -209,14 +230,14 @@ const instr instr_table[] = {
     [DEC_BC]        = {.opcode = DEC_BC,    .instr_fmt = "DEC BC",      .size = 1},
     [INC_C]         = {.opcode = INC_C,     .instr_fmt = "INC C",      .size = 1},
     [DEC_C]         = {.opcode = DEC_C,     .instr_fmt = "DEC C",      .size = 1},
-    [LD_C]          = {.opcode = LD_C,  .instr_fmt = "LD C, 0x%02",       .size = 2},
+    [LD_C]          = {.opcode = LD_C,  .instr_fmt = "LD C, 0x%02x",       .size = 2},
     [RRCA]          = {.opcode = RRCA,  .instr_fmt = "RRCA",         .size = 1},
     [STOP]          = {.opcode = STOP,  .instr_fmt = "STOP",         .size = 2},
     [LD_DE]         = {.opcode = LD_DE,     .instr_fmt = "LD DE, 0x%04x",       .size = 3},
-    [STR_DE]        = {.opcode = STR_DE,    .instr_fmt = "STR",      .size = 1},
-    [INC_DE]        = {.opcode = INC_DE,    .instr_fmt = "INC",      .size = 1},
-    [INC_D]         = {.opcode = INC_D,     .instr_fmt = "INC",      .size = 1},
-    [DEC_D]         = {.opcode = DEC_D,     .instr_fmt = "DEC",      .size = 1},
+    [STR_DE]        = {.opcode = STR_DE,    .instr_fmt = "STR DE",      .size = 1},
+    [INC_DE]        = {.opcode = INC_DE,    .instr_fmt = "INC DE",      .size = 1},
+    [INC_D]         = {.opcode = INC_D,     .instr_fmt = "INC D",      .size = 1},
+    [DEC_D]         = {.opcode = DEC_D,     .instr_fmt = "DEC D",      .size = 1},
     [LD_D]          = {.opcode = LD_D,  .instr_fmt = "LD D, 0x%02x",       .size = 2},
     [RLA]           = {.opcode = RLA,   .instr_fmt = "RLA",      .size = 1},
     [JR]            = {.opcode = JR,    .instr_fmt = "JR %hhd",       .size = 2},
@@ -417,7 +438,7 @@ const instr instr_table[] = {
     [SBC_n]         = {.opcode = SBC_n,     .instr_fmt = "SBC A, 0x%02x",      .size = 2},
     [RST_18]        = {.opcode = RST_18,    .instr_fmt = "RST",      .size = 1},
     [STR_DIR_n]         = {.opcode = STR_DIR_n,     .instr_fmt = "STR (0xFF00+0x%02x), A",      .size = 2},
-    [POP_HL]        = {.opcode = POP_HL,    .instr_fmt = "POP",      .size = 1},
+    [POP_HL]        = {.opcode = POP_HL,    .instr_fmt = "POP HL",      .size = 1},
     [STR_DIR]       = {.opcode = STR_DIR,   .instr_fmt = "STR (0xFF00+C), A",      .size = 1},
     [PUSH_HL]       = {.opcode = PUSH_HL,   .instr_fmt = "PUSH HL",         .size = 1},
     [AND_n]         = {.opcode = AND_n,     .instr_fmt = "AND A, 0x%02x",      .size = 2},
