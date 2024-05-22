@@ -5,6 +5,7 @@
 #include "mapper.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
@@ -55,49 +56,76 @@ CPU_t* init_cpu(main_bus_t* bus){
 
 static void check_HC_add(uint8_t val1, uint8_t val2){
     uint8_t chk;
+
     chk = (val1 & 0xf) + (val2 & 0xf);
-    if(chk & 0x10) cpu.FLAGS.HC = 1;
-    else cpu.FLAGS.HC = 0;
+    cpu.FLAGS.HC = chk & 0x10 ? 1 : 0;
+}
+
+static void check_HC_adc(uint8_t val1, uint8_t val2){
+    uint8_t chk;
+
+    chk = (val1 & 0xf) + (val2 & 0xf) + cpu.FLAGS.C;
+    cpu.FLAGS.HC = chk & 0x10 ? 1 : 0;
 }
 
 static void check_HC_add_16bit(uint16_t val1, uint16_t val2){
     uint16_t chk;
+
     chk = (val1 & 0xfff) + (val2 & 0xfff);
     if(chk & 0x1000) cpu.FLAGS.HC = 1;
     else cpu.FLAGS.HC = 0;
 }
 
 static void check_HC_sub(uint8_t val1, uint8_t val2){
-    uint8_t chk;
-    chk = (val1 & 0x1F) - (val2 & 0xf);
-    if(chk & 0x10) cpu.FLAGS.HC = 0; //check if the 4th bit of val1 was borrowed
-    else cpu.FLAGS.HC = 1;
-}
+    int8_t chk;
 
-//maybe not needed?
-//static void check_HC_sub_16bit(uint16_t val1, uint16_t val2){
-//    uint16_t chk;
-//    chk = (val1 & 0x1fff) - (val2 & 0xfff);
-//    if(chk & 0x1000) cpu.FLAGS.HC = 1;
-//    else cpu.FLAGS.HC = 0;
-//}
+    chk = (val1 & 0xF) - (val2 & 0xf);
+    cpu.FLAGS.HC = chk < 0 ? 1 : 0; //check if the 4th bit of val1 was borrowed
+}
 
 static uint8_t add(byte v1, byte v2){
     uint8_t result;
     result = v1 + v2;
-    if(result < cpu.A) cpu.FLAGS.C = 1;
-    else cpu.FLAGS.C = 0;
+    cpu.FLAGS.C = (result < v1) ? 1 : 0;
     check_HC_add(v1, v2);
+    cpu.FLAGS.N = 0;
+    return result;
+}
+
+static uint8_t adc(byte v1, byte v2){
+    uint16_t result;
+    check_HC_adc(v1, v2);
+    result = v1 + v2 + cpu.FLAGS.C;
+    cpu.FLAGS.C = (result >= 0x100) ? 1 : 0;
     cpu.FLAGS.N = 0;
     return result;
 }
 
 static uint8_t sub(byte v1, byte v2){
     uint8_t result;
+
     result = v1 - v2;
     cpu.FLAGS.C = (result > cpu.A) ?  1 : 0;
     check_HC_sub(v1, v2);
     cpu.FLAGS.N = 1;
+
+    return result;
+}
+
+static uint8_t sbc(byte v1, byte v2){
+    int16_t c_chk;
+    int8_t hc_chk;
+    uint8_t result;
+
+    result = v1 - v2 - cpu.FLAGS.C;
+
+    //set the flags sbc hc check is different than sub
+    hc_chk = (v1 & 0xF) - (v2 & 0xf) - cpu.FLAGS.C;
+    cpu.FLAGS.HC = (hc_chk < 0) ? 1 : 0;
+    c_chk = v1 - v2 - cpu.FLAGS.C;
+    cpu.FLAGS.C = (c_chk < 0) ?  1 : 0;
+    cpu.FLAGS.N = 1;
+
     return result;
 }
 
@@ -126,21 +154,22 @@ static void do_call(address addr){
 }
 
 static void prefixed_instr(){
+    byte *reg;
+    byte bit;
+    byte mem_val;
+    byte tmp_reg;
     byte opcode = read_bus(cpu.PC++);
-    uint8_t *reg;
-    uint8_t bit;
-    uint8_t mem_val;
-    uint8_t tmp_reg;
 
 #ifdef DEBUG_CPU
     LOGF(DEBUG,"PREFIXED OPCODE: 0x%02x",opcode);
 #endif
     get_8bit_register(opcode, 0, &reg);
-    //potential way to handle the writeback for this addr
-    if(!reg){
+
+    if(reg == NULL){
         mem_val = read_bus(cpu.HL);
         reg = &mem_val;
     }
+
     switch(opcode >> 3){
         case RLC:
             tmp_reg = *reg; 
@@ -149,7 +178,7 @@ static void prefixed_instr(){
             *reg |= cpu.FLAGS.C;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.N = 0;
-            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case RL:
             tmp_reg = *reg; 
@@ -158,7 +187,7 @@ static void prefixed_instr(){
             cpu.FLAGS.C = tmp_reg >> 7;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.N = 0;
-            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case RRC:
             tmp_reg = *reg;
@@ -167,7 +196,7 @@ static void prefixed_instr(){
             cpu.FLAGS.C = tmp_reg & 1;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.N = 0;
-            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case RR:
             tmp_reg = *reg;
@@ -176,14 +205,14 @@ static void prefixed_instr(){
             cpu.FLAGS.C = tmp_reg & 1;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.N = 0;
-            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case SLA:
             cpu.FLAGS.C = *reg >> 7;
             *reg <<= 1;
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
-            cpu.FLAGS.Z = *reg ? 1 : 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case SRA:
             cpu.FLAGS.C = *reg & 1;
@@ -191,12 +220,16 @@ static void prefixed_instr(){
             *reg |= ((*reg >> 6) & 1) << 7; //set msb to old msb
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
-            cpu.FLAGS.Z = *reg ? 1 : 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case SWAP:
-            tmp_reg = *reg >> 4;
-            *reg <<= 4;
-            *reg |= tmp_reg;
+            tmp_reg = *reg >> 4; //upper nibble
+            *reg <<= 4; //push lower nibble over
+            *reg |= tmp_reg; //or in lower nibble
+            cpu.FLAGS.C = 0;
+            cpu.FLAGS.N = 0;
+            cpu.FLAGS.HC = 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         case SRL:
             cpu.FLAGS.C = *reg & 1;
@@ -204,7 +237,7 @@ static void prefixed_instr(){
             *reg &= ~(1 << 7); //unset msb
             cpu.FLAGS.N = 0;
             cpu.FLAGS.HC = 0;
-            cpu.FLAGS.Z = *reg ? 1 : 0;
+            cpu.FLAGS.Z = *reg == 0 ? 1 : 0;
             break;
         default:
             bit = (opcode >> 3) & 7;
@@ -327,6 +360,7 @@ static void misc_instr(byte opcode){
             check_HC_sub(*temp_reg8, 1);
             *temp_reg8 -= 1;
             cpu.FLAGS.Z = !(*temp_reg8);
+            cpu.FLAGS.N = 1;
             break;
         case DEC_MEM:
             tmp_byte = read_bus(cpu.HL);
@@ -362,7 +396,7 @@ static void misc_instr(byte opcode){
             tmp_byte = cpu.A; 
             cpu.A <<= 1;
             cpu.A |= cpu.FLAGS.C;
-            cpu.FLAGS.C = cpu.A >> 7;
+            cpu.FLAGS.C = tmp_byte >> 7;
             cpu.FLAGS.HC = 0;
             cpu.FLAGS.N = 0;
             cpu.FLAGS.Z = 0;
@@ -391,15 +425,16 @@ static void misc_instr(byte opcode){
             cpu.FLAGS.HC = 1;     
             break;
         case DAA:
-            tmp_byte = cpu.A & 0xF; //isolate lower nibble
-            //https://faculty.kfupm.edu.sa/COE/aimane/assembly/pagegen-68.aspx.htm from here
-            if(tmp_byte > 10){
-                tmp_byte -= 10;
-                cpu.A >>= 4;
-                cpu.A++;
-                cpu.A <<= 4;
-                cpu.A |= tmp_byte;
+            tmp_byte = 0;
+            if(cpu.FLAGS.HC || (!cpu.FLAGS.N && (cpu.A & 0x0f) > 0x9))
+                tmp_byte += 6;
+            if(cpu.FLAGS.C || (!cpu.FLAGS.N && cpu.A > 0x99)){
+                tmp_byte += 0x60;
+                cpu.FLAGS.C = 1;
             }
+            cpu.A += cpu.FLAGS.N ? -tmp_byte : tmp_byte;
+            cpu.FLAGS.Z = cpu.A == 0 ? 1 : 0;
+            cpu.FLAGS.HC = 0;
             break;
         case CCF:
             cpu.FLAGS.N = 0;
@@ -519,9 +554,18 @@ static void misc_instr(byte opcode){
             cpu.A = read_bus(0xFF00 + cpu.C);
             break;
         case ADD_SP: 
-            rel_off = read_bus(cpu.PC);
-            cpu.PC += 1;
-            check_HC_add_16bit(cpu.SP, rel_off);
+            rel_off = read_bus(cpu.PC++);
+            tmp_byte = cpu.SP & 0xff;
+            if(rel_off >= 0){
+                check_HC_add(cpu.SP & 0xff, rel_off);
+                cpu.FLAGS.C = (tmp_byte + rel_off) >= 0x100 ? 1 : 0;
+            } else {
+                check_HC_sub(cpu.SP & 0xff, rel_off);
+                tmp_byte += rel_off;
+                cpu.FLAGS.C = (int8_t)tmp_byte < 0 ? 1 : 0;
+            }
+            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.N = 0;
             addr = cpu.SP + rel_off;
             break;
         case JMP_HL:
@@ -577,8 +621,7 @@ void logic_arith_8bit(byte operation, uint8_t value){
             cpu.A = result;
             break;
         case ADC:
-            value += cpu.FLAGS.C;
-            result = add(cpu.A, value);
+            result = adc(cpu.A, value);
             cpu.A = result;
             break;
         case SUB:
@@ -586,8 +629,7 @@ void logic_arith_8bit(byte operation, uint8_t value){
             cpu.A = result;
             break;
         case SBC:
-            value -= cpu.FLAGS.C;
-            result = sub(cpu.A, value);
+            result = sbc(cpu.A, value);
             cpu.A = result;
             break;
         case AND:
@@ -628,6 +670,9 @@ static void control_flow(byte opcode){
     op = opcode & 0xF;
     if(op == POP){
         pop(reg);
+        if(reg == &cpu.AF){
+            cpu.AF &= 0xFFF0; //lower nibble of F must be 0
+        }
     } else if (op == PUSH) {
         push(*reg);
     } else if ((op & 7) == RST) {

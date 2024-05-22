@@ -155,6 +155,22 @@ void status(){
     puts("--------------------------------------");
 }
 
+//like the gdb implementation of ni
+void next(){
+    address addr = 0;
+    byte cur_op;
+    cur_op = read_bus(db.cpu->PC);
+    if(strncmp(instr_table[cur_op].instr_fmt, "CALL", 4) == 0){
+        addr = db.cpu->PC + instr_table[cur_op].size; //address of next instr
+        do{
+            step();
+        }while(db.cpu->PC != addr);
+    } else {
+        step();
+    }
+    return;
+}
+
 void debug(){
     char* cmd;
     bool done = false;
@@ -181,6 +197,10 @@ void debug(){
                 delete_break(cmd);
                 break;
             case 'i':
+                status();
+                break;
+            case 'n':
+                next();
                 status();
                 break;
             case 's':

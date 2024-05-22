@@ -1,6 +1,7 @@
 #include "mapper.h"
 #include <stdint.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 
 static mapper_t *map;
@@ -50,8 +51,9 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     LOGF(DEBUG, "ENTRY VALUE 0x%x",map->ROM_banks[0][0x100]);
 
     //populate the ROM_banks list. this will be used for swapping to the specific pages
-    for(uint8_t i = 1; i < 1<<num_ROM; i++)
+    for(uint8_t i = 1; i < 2<<num_ROM; i++){
         map->ROM_banks[i] = map->ROM_banks[0] + ROM_BANK_SIZE*i;
+    }
     map->num_ROM = 2<<num_ROM;
     LOGF(DEBUG, "ROM: %p",map->ROM_banks[0]);
     map->rom_size = ROM_SIZE<<num_ROM;
@@ -81,6 +83,7 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     //to be figured out later
     map->read = NULL;
     map->write = NULL; 
+    map->cur_ROM = 1;
     map->MCB1.banking_mode_select = false;
     map->MCB1.RAM_enabled = false;
     return map;
