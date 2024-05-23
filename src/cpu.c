@@ -68,12 +68,14 @@ static void check_HC_adc(uint8_t val1, uint8_t val2){
     cpu.FLAGS.HC = chk & 0x10 ? 1 : 0;
 }
 
-static void check_HC_add_16bit(uint16_t val1, uint16_t val2){
+static void check_flags_add_16bit(uint16_t val1, uint16_t val2){
     uint16_t chk;
+    uint32_t chk2;
 
+    chk2 = val1 + val2;
     chk = (val1 & 0xfff) + (val2 & 0xfff);
-    if(chk & 0x1000) cpu.FLAGS.HC = 1;
-    else cpu.FLAGS.HC = 0;
+    cpu.FLAGS.HC = chk & 0x1000 ? 1 : 0;
+    cpu.FLAGS.C = chk2 & 0x10000 ? 1 : 0;
 }
 
 static void check_HC_sub(uint8_t val1, uint8_t val2){
@@ -242,7 +244,7 @@ static void prefixed_instr(){
         default:
             bit = (opcode >> 3) & 7;
             if(opcode >= BIT && opcode < RES){
-                cpu.FLAGS.Z = *reg & 1 << bit ? 1 : 0;
+                cpu.FLAGS.Z = *reg & (1 << bit) ? 0 : 1;
                 cpu.FLAGS.N = 0;
                 cpu.FLAGS.HC = 1;
             } else if(opcode >= RES && opcode < SET){
@@ -266,6 +268,7 @@ static void misc_instr(byte opcode){
     uint16_t addr; 
     byte tmp_byte;
     int8_t rel_off;
+    uint16_t tmp_word = 0;;
     tmp_byte = addr = 0;
 
     switch(opcode){
@@ -305,9 +308,10 @@ static void misc_instr(byte opcode){
         case ADD_HL_SP: //sum reg into HL
             get_16bit_register(opcode, 4, &temp_reg16);
             cpu.FLAGS.N = 0;
-            check_HC_add_16bit(cpu.HL, *temp_reg16);
+            check_flags_add_16bit(cpu.HL, *temp_reg16);
             cpu.HL += *temp_reg16;
-            cpu.FLAGS.Z = !cpu.HL;
+            //cpu.FLAGS.Z = !cpu.HL;
+            cpu.FLAGS.N = 0;
             break;
         case LD_A_BC:
         case LD_A_DE:
@@ -346,8 +350,9 @@ static void misc_instr(byte opcode){
             tmp_byte = read_bus(cpu.HL);
             cpu.FLAGS.N = 0;
             check_HC_add(tmp_byte, 1);
+            tmp_byte++;
             cpu.FLAGS.Z = !tmp_byte;
-            write_bus(cpu.HL, tmp_byte++);
+            write_bus(cpu.HL, tmp_byte);
             break;
         case DEC_A: 
         case DEC_B: 
@@ -365,6 +370,7 @@ static void misc_instr(byte opcode){
         case DEC_MEM:
             tmp_byte = read_bus(cpu.HL);
             check_HC_sub(tmp_byte, 1);
+            cpu.FLAGS.N = 1;
             write_bus(cpu.HL, --tmp_byte);
             cpu.FLAGS.Z = !tmp_byte;
             break;
@@ -556,17 +562,12 @@ static void misc_instr(byte opcode){
         case ADD_SP: 
             rel_off = read_bus(cpu.PC++);
             tmp_byte = cpu.SP & 0xff;
-            if(rel_off >= 0){
-                check_HC_add(cpu.SP & 0xff, rel_off);
-                cpu.FLAGS.C = (tmp_byte + rel_off) >= 0x100 ? 1 : 0;
-            } else {
-                check_HC_sub(cpu.SP & 0xff, rel_off);
-                tmp_byte += rel_off;
-                cpu.FLAGS.C = (int8_t)tmp_byte < 0 ? 1 : 0;
-            }
+            tmp_word = tmp_byte + (uint8_t)rel_off;
+            check_HC_add(tmp_byte, rel_off); //rel off should be treated as unsigned for this
+            cpu.FLAGS.C = tmp_word >= 0x100 ? 1 : 0;
             cpu.FLAGS.Z = 0;
             cpu.FLAGS.N = 0;
-            addr = cpu.SP + rel_off;
+            cpu.SP += rel_off;
             break;
         case JMP_HL:
             cpu.PC = cpu.HL;
@@ -590,7 +591,12 @@ static void misc_instr(byte opcode){
         case LD_HL_SP_e:
             rel_off = read_bus(cpu.PC);
             cpu.PC++;
-            check_HC_add_16bit(cpu.HL, cpu.SP + rel_off);
+            tmp_byte = cpu.SP & 0xff;
+            tmp_word = tmp_byte + (uint8_t)rel_off;
+            check_HC_add(tmp_byte, rel_off); //rel off should be treated as unsigned for this
+            cpu.FLAGS.C = tmp_word >= 0x100 ? 1 : 0;
+            cpu.FLAGS.Z = 0;
+            cpu.FLAGS.N = 0;
             cpu.HL = cpu.SP + rel_off;
             break;
         case LD_SP_HL:

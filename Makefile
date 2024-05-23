@@ -2,9 +2,6 @@
 OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o build/io_ports.o build/gb_debugger.o
 CC = gcc
 CFLAGS = -g -Wall -I./include/ -D HEADLESS
-
-REGFLAGS = -D NATTACH_DB
-DBFLAGS = -D LOG_OFF
 LFLAGS := -lraylib
 
 #comment to build without tests
