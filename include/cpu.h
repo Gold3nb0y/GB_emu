@@ -48,14 +48,30 @@ typedef struct CPU_struct{
     uint16_t SP;
     uint16_t PC;
     byte IME; //interrupts enabled
+    union{
+        uint8_t data;
+        struct{
+            uint8_t VBlank: 1;
+            uint8_t LCD: 1;
+            uint8_t Timer: 1;
+            uint8_t Serial: 1;
+            uint8_t Joypad: 1;
+            uint8_t unused: 3;
+        }flags;
+    } IF; //interupt flag cpu must check these
+    byte IE; //interupt enable
 }CPU_t;
 
 CPU_t* init_cpu(main_bus_t* bus);
 
 void reset();
 
-uint64_t exec_program(uint64_t ticks);
+uint8_t cpu_cycle();
 void patch(char* bytecode, size_t size);
 void dump_cpu();
+byte read_IF(void* io_reg);
+void write_IF(void* io_reg, byte data);
+byte read_IE(void* io_reg);
+void write_IE(void* io_reg, byte data);
 
 #endif

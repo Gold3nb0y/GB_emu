@@ -61,6 +61,7 @@ typedef struct PPU_struct{
     pixel_tile background[0x20][0x20];
     pixel_tile window[0x20][0x20];
     byte* mem_perm_ptr;
+    interupt_cb vblank_int;
     uint8_t WX;
     uint8_t WY;
     uint8_t SCX;

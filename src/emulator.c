@@ -15,10 +15,6 @@ void cleanup(int sig){
     return;
 }
 
-byte read_IF(void* io_reg);
-void write_IF(void* io_reg, byte data);
-byte read_IE(void* io_reg);
-void write_IE(void* io_reg, byte data);
 
 //TODO reset more thouroughly right now just setting things up for a new rom
 void reset_cpu(){
@@ -132,21 +128,6 @@ void run(){
     cleanup(0);
 }
 
-byte read_IF(void* io_reg){
-    return emu.IF;
-}
-
-void write_IF(void* io_reg, byte data){
-    emu.IF = data;
-}
-
-byte read_IE(void* io_reg){
-    return emu.IE;
-}
-
-void write_IE(void* io_reg, byte data){
-    emu.IE = data;
-}
 
 emulator_t* get_emu(){
     return &emu;

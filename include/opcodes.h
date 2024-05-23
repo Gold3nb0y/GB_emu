@@ -2,6 +2,14 @@
 #define OPCODES_H
 
 #include <stdint.h>
+
+typedef struct{
+    uint8_t opcode;
+    char instr_fmt[0x18];
+    uint8_t size;
+    uint8_t M_cycles;
+} instr;
+
 enum opcodes{
     NOP = 0,
     LD_BC,
@@ -284,11 +292,6 @@ enum REGS_16 {
 #define RES 0x80
 #define SET 0xC0
 
-typedef struct{
-    uint8_t opcode;
-    char instr_fmt[0x18];
-    uint8_t size;
-} instr;
 
 
 #endif

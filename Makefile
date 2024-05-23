@@ -1,5 +1,5 @@
 #define a series of objects in an array
-OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o build/io_ports.o build/gb_debugger.o
+OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o build/io_ports.o build/gb_debugger.o build/opcodes.o
 CC = gcc
 CFLAGS = -g -Wall -I./include/ -D HEADLESS
 LFLAGS := -lraylib
@@ -8,17 +8,18 @@ LFLAGS := -lraylib
 #test = true
 debug = true
 
-ifdef test
-OBJS += build/tests.o
-CFLAGS += -D TEST -D HEADLESS -fprofile-arcs -ftest-coverage
-LFLAGS += -lgcov --coverage 
-endif
-
 ifdef debug
 CFLAGS += -D LOG_OFF
 else
 CFLAGS += -D NATTACH_DB
 endif
+
+ifdef test
+OBJS += build/tests.o
+CFLAGS += -fprofile-arcs -ftest-coverage
+LFLAGS += -lgcov --coverage 
+endif
+
 
 all: $(OBJS)# all requires the object files to run
 	$(CC) -o gameboi $(OBJS) $(LFLAGS)

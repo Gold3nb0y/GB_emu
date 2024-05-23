@@ -48,6 +48,8 @@ typedef pixel_row pixel_tile[8];
 typedef pixel_tile sprite;
 typedef pixel_tile tall_sprite[2];
 
+typedef void(*interupt_cb)();
+
 struct LCD_data{
     uint64_t data;
 };
