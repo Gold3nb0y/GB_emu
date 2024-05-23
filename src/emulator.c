@@ -100,7 +100,8 @@ void create_emulator(char* filename){
 
 
 void run(){
-    uint64_t ticks, ticked;
+    uint64_t ticks;
+    uint8_t cycles;
     char check;
     ticks = 0;
     LOG(INFO, "Beginning ROM execution");
@@ -108,9 +109,9 @@ void run(){
 #ifndef NATTACH_DB
         start_debugger(emu.main_bus, emu.cpu);
 #else
-        if((ticked = exec_program(4)) == 0) emu.running = false; //trigger cpu
-        ticks += ticked;
-        ticked *= 2;
+        if((cycles = cpu_cycle(4)) == 0) emu.running = false; //trigger HALT
+        ticks += cycles;
+        //based of the value of cycles do DMA, ppu, and timer
         if(emu.main_bus->DMA_info.DMA_enabled){
             for(uint64_t i = 0; i < ticked; i++)
                 DMA_tick();
