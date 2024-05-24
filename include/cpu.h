@@ -59,7 +59,17 @@ typedef struct CPU_struct{
             uint8_t unused: 3;
         }flags;
     } IF; //interupt flag cpu must check these
-    byte IE; //interupt enable
+    union{
+        uint8_t data;
+        struct{
+            uint8_t VBlank: 1;
+            uint8_t LCD: 1;
+            uint8_t Timer: 1;
+            uint8_t Serial: 1;
+            uint8_t Joypad: 1;
+            uint8_t unused: 3;
+        }flags;
+    } IE; //interupt flag cpu must check these
 }CPU_t;
 
 CPU_t* init_cpu(main_bus_t* bus);
@@ -69,9 +79,14 @@ void reset();
 uint8_t cpu_cycle();
 void patch(char* bytecode, size_t size);
 void dump_cpu();
-byte read_IF(void* io_reg);
-void write_IF(void* io_reg, byte data);
-byte read_IE(void* io_reg);
-void write_IE(void* io_reg, byte data);
+byte read_IF();
+void write_IF(byte data);
+byte read_IE();
+void write_IE(byte data);
+void vblank_int();
+void stat_int();
+void timer_int();
+void serial_int();
+void joypad_int();
 
 #endif

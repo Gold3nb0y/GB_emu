@@ -61,12 +61,14 @@ typedef struct PPU_struct{
     pixel_tile background[0x20][0x20];
     pixel_tile window[0x20][0x20];
     byte* mem_perm_ptr;
-    interupt_cb vblank_int;
+    IRQ vblank_int;
+    IRQ stat_int;
     uint8_t WX;
     uint8_t WY;
     uint8_t SCX;
     uint8_t SCY;
     uint8_t LY;
+    uint8_t LYC;
     obj_t obj_buf[10];
     uint8_t ob_idx;
     union {
@@ -102,20 +104,20 @@ typedef struct PPU_struct{
 PPU_t* init_ppu(byte* perm_ptr);
 void ppu_tick();
 int cleanup_ppu();
-byte read_LCDC(void* io_reg);
-void write_LCDC(void* io_reg, byte data);
-byte read_STAT(void* io_reg);
-void write_STAT(void* io_reg, byte data);
-byte read_SCX(void* io_reg);
-void write_SCX(void* io_reg, byte data);
-byte read_SCY(void* io_reg);
-void write_SCY(void* io_reg, byte data);
-byte read_WX(void* io_reg);
-void write_WX(void* io_reg, byte data);
-byte read_WY(void* io_reg);
-void write_WY(void* io_reg, byte data);
-byte read_LY(void* io_reg);
-byte read_LYC(void* io_reg);
-void write_LYC(void* io_reg, byte data);
+byte read_LCDC();
+void write_LCDC(byte data);
+byte read_STAT();
+void write_STAT(byte data);
+byte read_SCX();
+void write_SCX(byte data);
+byte read_SCY();
+void write_SCY(byte data);
+byte read_WX();
+void write_WX(byte data);
+byte read_WY();
+void write_WY(byte data);
+byte read_LY();
+byte read_LYC();
+void write_LYC(byte data);
 
 #endif

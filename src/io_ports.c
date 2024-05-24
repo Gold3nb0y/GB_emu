@@ -8,30 +8,26 @@
 
 char SB_data = 0; //hack for writting to console
 
-byte read_joycon(void *self){
-    io_reg *temp = self;
-    return temp->storage;
+byte read_joycon(){
+    printf("joycon not implemented\n");
+    exit(0);
+    return 0;
 }
 
-void write_joycon(void *self, byte data){
-    io_reg *temp = self;
-    temp->storage |= data & 0xF0;
+void write_joycon( byte data){
+    printf("joycon not implemented\n");
+    exit(0);
 }
 
-byte read_SB(void *self){
+byte read_SB(){
     return SB_data;
 }
 
-void write_SB(void *self, byte data){
-    LOG(INFO, "WRITE SB");
-    //getchar();
+void write_SB(byte data){
     SB_data = data;
 }
 
-void write_SC(void *self, byte data){
-    LOG(INFO, "WRITE SC");
-    //getchar();
+void write_SC(byte data){
     if(data == 0x81)
         printf("%c", SB_data);
-    return;
 }

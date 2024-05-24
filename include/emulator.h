@@ -2,6 +2,7 @@
 #define EMU_H
 #include "common.h"
 #include "gb_debugger.h"
+#include "timer.h"
 #include "cpu.h"
 #include "io_ports.h"
 #include "ppu.h"
@@ -15,6 +16,7 @@ typedef struct emulator_struct{
     CPU_t* cpu;
     main_bus_t *main_bus;
     PPU_t* ppu;
+    gb_timer* clock;
     cart_t cart;
     bool running;
 }emulator_t;

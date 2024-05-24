@@ -102,17 +102,14 @@ byte read_bus_generic(address addr){
             LOGF(ERROR, "{READ} register 0x%x not mapped\n", addr);
             return -1;
         }
-        if(reg->readable == false){
+        if(reg->read_callback == NULL){
             LOG(ERROR, "register not readable");
             return -1;
         }
 #ifdef DEBUG_BUS
         LOGF(DEBUG, "{READ} register 0x%x\n", addr);
 #endif
-        if(reg->read_callback)
-            ret = reg->read_callback(reg);
-        else
-            ret = reg->storage;
+        ret = reg->read_callback();
     } else if(addr >= HRAM_START && addr < IE_REG){
         ret = bus->mapper->HRAM[addr-HRAM_START];
     } else {
@@ -144,17 +141,14 @@ void write_bus_generic(address addr, byte data){
             LOGF(ERROR, "{WRITE} register 0x%x not mapped", addr);
             return;
         }
-        if(reg->writeable == false){
-            LOG(ERROR, "register not readable");
+        if(reg->write_callback == NULL){
+            LOG(ERROR, "register not writable");
             return;
         }
 #ifdef DEBUG_BUS
         LOGF(DEBUG, "{write} register 0x%x with data 0x%x\n", addr, data);
 #endif
-        if(reg->write_callback)
-            reg->write_callback(reg, data);
-        else
-            reg->storage = data;
+        reg->write_callback(data);
     } else if(addr >= HRAM_START && addr < IE_REG){
         bus->mapper->HRAM[addr-HRAM_START] = data;
     } else {
@@ -205,7 +199,7 @@ void write_bus_addr(address dest, address addr){
 }
 
 //I will start it and update it every clock cycle for run for now
-void start_DMA(void *io_reg, byte data){
+void start_DMA(byte data){
     bus->DMA_info.DMA_addr = data << 8;
     bus->DMA_info.DMA_count = 0;
     bus->DMA_info.DMA_enabled = true;
@@ -219,11 +213,11 @@ void DMA_tick(){
         bus->DMA_info.DMA_enabled = false;
 }
 
-byte read_VBK(void* self){
+byte read_VBK(){
     return bus->mapper->cur_VRAM;
 }
 
-void write_VBK(void* self, byte data){
+void write_VBK(byte data){
     bus->VRAM = bus->mapper->VRAM_banks[data];
     bus->mapper->cur_VRAM = data;
 }

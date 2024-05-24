@@ -27,13 +27,10 @@ void reset_cpu(){
     return;
 }
 
-void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func, bool readable, bool writeable){
-    reg->storage = 0;
+void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func){
     reg->addr = addr;
     reg->read_callback = read_func;
     reg->write_callback = write_func;
-    reg->readable = readable;
-    reg->writeable = writeable;
     return;
 }
 
@@ -47,31 +44,33 @@ uint64_t init_io(main_bus_t *bus){
     }
     
     //joypad is special since it is only written to by hardware.
-    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon, true, true);
-    init_io_reg(&ret[i++], SB, read_SB, write_SB, true, true);
-    init_io_reg(&ret[i++], SC, NULL, write_SC, false, true);
-    init_io_reg(&ret[i++], DIV, NULL, NULL, true, true);
+    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
+    init_io_reg(&ret[i++], SB, read_SB, write_SB);
+    init_io_reg(&ret[i++], SC, NULL, write_SC);
+    init_io_reg(&ret[i++], DIV, NULL, NULL);
 
     //timer stuff, seems complicated ignoring until I am sure I need a timer
-    //init_io_reg(&ret[i++], TIMA, NULL, NULL, true, true);
-    //init_io_reg(&ret[i++], TMA, NULL, NULL, true, true);
-    //init_io_reg(&ret[i++], TAC, NULL, NULL, true, true);
+    init_io_reg(&ret[i++], TIMA, read_TIMA, write_TIMA);
+    init_io_reg(&ret[i++], TMA, read_TMA, write_TIMA);
+    init_io_reg(&ret[i++], TAC, read_TAC, write_TAC);
 
-    init_io_reg(&ret[i++], IF, read_IF, write_IF, true, true);
+    //cpu
+    init_io_reg(&ret[i++], IF, read_IF, write_IF);
+    init_io_reg(&ret[i++], IE, read_IE, write_IE);
+
     //all the registers for the display
-    init_io_reg(&ret[i++], LCDC, read_LCDC, write_LCDC, true, true);
-    init_io_reg(&ret[i++], STAT, read_STAT, write_STAT, true, true);
-    init_io_reg(&ret[i++], SCX, read_SCX, write_SCX, true, true);
-    init_io_reg(&ret[i++], SCY, read_SCY, write_SCY, true, true);
-    init_io_reg(&ret[i++], WX, read_WX, write_WX, true, true);
-    init_io_reg(&ret[i++], WY, read_WY, write_WY, true, true);
-    init_io_reg(&ret[i++], LY, read_LY, NULL, true, false);
-    init_io_reg(&ret[i++], LYC, read_LYC, write_LYC, true, true);
+    init_io_reg(&ret[i++], LCDC, read_LCDC, write_LCDC);
+    init_io_reg(&ret[i++], STAT, read_STAT, write_STAT);
+    init_io_reg(&ret[i++], SCX, read_SCX, write_SCX);
+    init_io_reg(&ret[i++], SCY, read_SCY, write_SCY);
+    init_io_reg(&ret[i++], WX, read_WX, write_WX);
+    init_io_reg(&ret[i++], WY, read_WY, write_WY);
+    init_io_reg(&ret[i++], LY, read_LY, NULL);
+    init_io_reg(&ret[i++], LYC, read_LYC, write_LYC);
 
-    init_io_reg(&ret[i++], VBK, read_VBK, write_VBK, true, true);
-    init_io_reg(&ret[i++], DMA, NULL, start_DMA, false, true);
+    init_io_reg(&ret[i++], VBK, read_VBK, write_VBK);
+    init_io_reg(&ret[i++], DMA, NULL, start_DMA);
 
-    init_io_reg(&ret[i++], IE, read_IE, write_IE, true, true);
 
     bus->io_regs = ret;
 
@@ -90,9 +89,13 @@ void create_emulator(char* filename){
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
     emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
     select_mapper(emu.cart.cart_type, emu.main_bus->mapper);
+    emu.clock = init_timer();
     emu.cpu = init_cpu(emu.main_bus);
     emu.ppu = init_ppu(&emu.main_bus->mem_perms);
     //sleep(2); //give the ppu process so time to start up
+    emu.ppu->vblank_int = vblank_int;
+    emu.ppu->stat_int = stat_int;
+    emu.clock->timer_int = timer_int;
     setup_io_regs();
     emu.running = true;
     return;
@@ -101,28 +104,30 @@ void create_emulator(char* filename){
 
 void run(){
     uint64_t ticks;
-    uint8_t cycles;
+    uint8_t cycles, dots;
     char check;
-    ticks = 0;
+    ticks = cycles = dots = 0;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
 #ifndef NATTACH_DB
         start_debugger(emu.main_bus, emu.cpu);
 #else
-        if((cycles = cpu_cycle(4)) == 0) emu.running = false; //trigger HALT
+        if((cycles = cpu_cycle(0)) == 0) emu.running = false; //trigger HALT
         ticks += cycles;
-        //based of the value of cycles do DMA, ppu, and timer
+        //based of the value of cycles do DMA, ppu, and init_timer
+        //
         if(emu.main_bus->DMA_info.DMA_enabled){
-            for(uint64_t i = 0; i < ticked; i++)
+            for(uint8_t i = 0; i < cycles; i++)
                 DMA_tick();
         }
+
+        //handle all of the ppu stuff
+        dots = cycles * 4; //4 dots per m_cycle
+        for(uint8_t i = 0; i < dots; i++)
+            ppu_tick(); //ppu has to be ticked once at a time
+
+        timer_cycle(cycles);
 #endif
-        //if(ticks % 0x100 == 0){
-        //    dump_cpu();
-        //    check = getchar();
-        //    if(check != '\n') break;
-        //}
-        //do some kind of interupt handling here after the PPU and CPU have been ticked
     }
     LOG(INFO, "Ending ROM execution");
     getchar();

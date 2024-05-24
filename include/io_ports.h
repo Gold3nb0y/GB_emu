@@ -2,17 +2,15 @@
 #define IO_PORTS
 #include <common.h>
 
-typedef byte(*read_io)(void* self);
-typedef void(*write_io)(void* self, byte);
+typedef byte(*read_io)();
+typedef void(*write_io)(byte);
 
+#define NUM_REGS 0x20
 
 typedef struct io_struct{
     address addr;
     read_io read_callback;
     write_io write_callback;
-    bool readable;
-    bool writeable;
-    byte storage; //many io_ports only require a single byte to manipulate
 } io_reg;
 
 enum {
@@ -77,10 +75,10 @@ enum {
     IE      = 0xFFFF
 };
 
-byte read_joycon(void *self);
-void write_joycon(void *self, byte data);
-byte read_SB(void *self);
-void write_SB(void *self, byte data);
-void write_SC(void *self, byte data);
+byte read_joycon();
+void write_joycon(byte data);
+byte read_SB();
+void write_SB(byte data);
+void write_SC(byte data);
 
 #endif

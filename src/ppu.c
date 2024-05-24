@@ -4,64 +4,64 @@
 static PPU_t ppu;
 
 //The following functions are used for IO_registers
-byte read_LCDC(void* io_reg){
+byte read_LCDC(){
     return ppu.LCDC.data;
 }
 
-void write_LCDC(void* io_reg, byte data){
+void write_LCDC(byte data){
     ppu.LCDC.data = data;
 }
 
-byte read_STAT(void* io_reg){
+byte read_STAT(){
     return ppu.STAT.data;
 }
 
-void write_STAT(void* io_reg, byte data){
+void write_STAT(byte data){
     ppu.STAT.data |= data & 0xf8;
 }
 
-byte read_SCX(void* io_reg){
+byte read_SCX(){
     return ppu.SCX;
 }
 
-void write_SCX(void* io_reg, byte data){
+void write_SCX(byte data){
     ppu.SCX = data;
 }
 
-byte read_SCY(void* io_reg){
+byte read_SCY(){
     return ppu.SCY;
 }
 
-void write_SCY(void* io_reg, byte data){
+void write_SCY(byte data){
     ppu.SCY = data;
 }
 
-byte read_WX(void* io_reg){
+byte read_WX(){
     return ppu.WX;
 }
 
-void write_WX(void* io_reg, byte data){
+void write_WX(byte data){
     ppu.WX = data;
 }
 
-byte read_WY(void* io_reg){
+byte read_WY(){
     return ppu.WY;
 }
 
-void write_WY(void* io_reg, byte data){
+void write_WY(byte data){
     ppu.WY = data;
 }
 
-byte read_LY(void* io_reg){
+byte read_LY(){
     return ppu.LY;
 }
 
-byte read_LYC(void* io_reg){
-    return ppu.STAT.flags.coincidence_flag;
+byte read_LYC(){
+    return ppu.LYC;
 }
 
-void write_LYC(void* io_reg, byte data){
-    ppu.STAT.flags.coincidence_flag = data;
+void write_LYC(byte data){
+    ppu.LYC = data;
 }
 
 //start of functions used for ppu implementations
@@ -230,7 +230,7 @@ PPU_t* init_ppu(byte* perm_ptr){
     return &ppu;
 }
 
-void ppu_tick(){
+void ppu_cycle(){
     ppu.dot_counter++; //used to keep track of progress internally
     switch(ppu.STAT.flags.PPU_mode){
         case HBLANK:
@@ -239,8 +239,10 @@ void ppu_tick(){
                 ppu.dot_counter = 0;
                 if(ppu.LY == VBLANK_START){
                     ppu.STAT.flags.PPU_mode = VBLANK;
+                    if(ppu.STAT.flags.mode_1_int) ppu.stat_int();
                 } else {
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
+                    if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
             }
             break;
@@ -252,6 +254,7 @@ void ppu_tick(){
                     ppu.LY = 0;
                     *ppu.mem_perm_ptr = OAM_BLOCKED;
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
+                    if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
             }
             break;
@@ -266,6 +269,7 @@ void ppu_tick(){
             //in reality the size of DRAW will very
             if(ppu.dot_counter + 1 == 0x100){
                 ppu.STAT.flags.PPU_mode = HBLANK;
+                if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
             }
             break;
@@ -273,6 +277,10 @@ void ppu_tick(){
             LOG(ERROR, "Incorrect ppu mode detected");
             exit(1);
             break;
+    }
+    if(ppu.LY == ppu.LYC){
+        ppu.STAT.flags.coincidence_flag = 1;
+        if(ppu.STAT.flags.LYC_stat_int) ppu.stat_int();
     }
     return;
 }

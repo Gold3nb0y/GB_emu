@@ -6,9 +6,6 @@
 #include "io_ports.h"
 #include <stdint.h>
 
-#define NUM_REGS 0x20
-
-
 //filled during mapper creation. mapper will handle swapping
 typedef struct main_bus_struct {
     byte* ROM_B0;
@@ -39,8 +36,8 @@ void write_bus_addr(address dest, address addr);
 //returns the number of regs generically allocated
 uint64_t init_generic_regs(mapper_t* mapper, uint64_t num_regs);
 void DMA_tick();
-void start_DMA(void* self, byte data);
-byte read_VBK(void* self);
-void write_VBK(void* self, byte data);
+void start_DMA(byte data);
+byte read_VBK();
+void write_VBK(byte data);
 
 #endif

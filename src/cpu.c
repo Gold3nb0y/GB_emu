@@ -754,6 +754,7 @@ uint8_t exec_instr(byte opcode){
             break;
         case STOP: //break until a button is pressed
             LOG(INFO, "Stopping execution until button is pressed, STOP INST");
+            //TODO trigger DIV reset
             getchar();
             break;
         default:
@@ -797,27 +798,27 @@ uint8_t cpu_cycle(){
     return cycles;
 }
 
-byte read_IF(void* io_reg){
+byte read_IF(){
     return cpu.IF.data;
 }
 
-void write_IF(void* io_reg, byte data){
+void write_IF(byte data){
     cpu.IF.data = data;
 }
 
-byte read_IE(void* io_reg){
-    return cpu.IE;
+byte read_IE(){
+    return cpu.IE.data;
 }
 
-void write_IE(void* io_reg, byte data){
-    cpu.IE = data;
+void write_IE(byte data){
+    cpu.IE.data = data;
 }
 
 void vblank_int(){
     cpu.IF.flags.VBlank = 1;
 }
 
-void LCD_int(){
+void stat_int(){
     cpu.IF.flags.LCD = 1;
 }
 
