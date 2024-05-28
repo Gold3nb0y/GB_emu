@@ -3,6 +3,7 @@
 #include "common.h"
 #include "main_bus.h"
 #include "lcd.h"
+#include <fcntl.h>
 #include <stdint.h>
 
 #define HIEGHT 160

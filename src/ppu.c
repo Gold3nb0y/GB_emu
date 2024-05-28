@@ -64,58 +64,6 @@ void write_LYC(byte data){
     ppu.LYC = data;
 }
 
-//start of functions used for ppu implementations
-void send_pixel(byte data){
-    write(ppu.LCD_fifo_write, &data, 1);
-    return;
-}
-
-void parse_pixel_row(uint16_t row, pixel_row *values){
-    uint8_t a,b;
-    uint8_t mask;
-    a = row >> 8;
-    b = row & 0xFF;
-
-    //shift values into the correct position
-    for(uint32_t i = 0; i < 0x8; i++){
-        mask = 1 << i;
-        (*values)[i] = (a & mask) >> i;
-        (*values)[i] |= ((b & mask) >> i) << 1;
-    }
-    return;
-}
-
-void parse_pixel_tile_from_memory(address addr, pixel_tile *tile){
-    uint16_t cur_row;
-    pixel_row *row = (pixel_row*)tile;
-    for(uint32_t i = 0; i < 0x8; i++){
-        cur_row = read_bus_addr(addr);
-        addr += 2;
-        parse_pixel_row(cur_row, &row[i]);
-    }
-    //do something with the tile containing the pixel information
-    return;
-}
-
-address get_tile_address(uint8_t tile_index, bool is_sprite){
-    address ret;
-    //depending on the value of the LCDC register the lookup changes
-    LOG(ERROR, "lookup not fully implemented");
-    exit(-1);
-    if(ppu.LCDC.flags.window_tile_map_select && !is_sprite){
-        ret = VRAM_START + 0x1000 + ((int8_t)tile_index * 0x10); 
-    } else {
-        ret = VRAM_START + (tile_index * 0x10); 
-    }
-    return ret;
-}
-
-//this parses and loads the information in memory into the struct I have availible
-//void load_background(address addr, pixel_tile *area){
-//    for(uint32_t i = 0; i < 0x40; i++){
-//        parse_pixel_tile_from_memory(addr+i*0x10, &area[i]);
-//    }
-//}
 
 void read_obj(uint8_t idx, obj_t *obj){
     obj->Y = read_bus(OAM_START + idx * sizeof(obj_t));
@@ -126,76 +74,28 @@ void read_obj(uint8_t idx, obj_t *obj){
 }
 
 struct sprite_stack {
-    obj_t to_display[10]; //up to 10 sprite_metadata can be displayed for any 1 scanline
+    obj_t to_display[10]; //up to 10 spt_metadata can be displayed for any 1 scanline
     uint8_t count;
     uint8_t current;
 };
 
-struct sprite_stack sprite_metadata = {0};
+struct sprite_stack spt_metadata = {0};
 
 //takes 80 cycles
 void scan_OAM(uint16_t scanline){
     uint8_t count = 0;
     obj_t tmp_obj = {0};
     uint8_t sprite_size = 0;
-    memset(&sprite_metadata, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
+    memset(&spt_metadata, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
     for(uint8_t i = 0; i < 40; i++){
         read_obj(i, &tmp_obj);
         if(tmp_obj.X > 0 && scanline+16 >= tmp_obj.Y && count < 10){
             sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
             if(scanline+16 < tmp_obj.Y+sprite_size){
-                memcpy(&sprite_metadata.to_display[count], &tmp_obj, sizeof(obj_t));
+                memcpy(&spt_metadata.to_display[count], &tmp_obj, sizeof(obj_t));
                 count++;
             }
         }
-    }
-}
-
-uint8_t calc_bg_idx(uint8_t x_pos){
-    address addr;
-    uint8_t tile_idx;
-
-    if(ppu.LCDC.flags.window_disp_enabled){
-        //do something
-        addr = 0;
-    } else {
-        //fetch bg tile number
-        addr = ppu.LCDC.flags.bg_tile_map_select ? BACKGROUND2 : BACKGROUND1;
-        addr += (x_pos + (ppu.SCX / 8)) & 0x1f;
-        addr += 32 * (((ppu.LY + ppu.SCY) & 0xFF) / 8);
-    }
-    tile_idx = read_bus(addr);
-    return tile_idx;
-}
-
-//send all of the bytes in order
-void scanline(uint16_t scanline){
-    byte to_send;
-    uint16_t fetched_bg = 0;
-    uint32_t fetched_sprite = 0;
-    uint8_t x_pos = 0;
-    address read_from = 0;
-    bool sprite_offset;
-
-    scan_OAM(scanline); //populate the sprite fifo
-                        
-    while(x_pos <= 0x20){
-        // fetch background
-        read_from = get_tile_address(calc_bg_idx(x_pos), false);
-        fetched_bg = read_bus_addr(read_from + ((ppu.LY + ppu.SCY) % 8)); 
-
-        // fetch sprite 
-        for(uint8_t i = 0; i < 10; i++){
-            if(sprite_metadata.to_display[i].X <= (x_pos+1)*8){
-                read_from = get_tile_address(sprite_metadata.to_display[i].tile_index, true);
-                fetched_sprite = read_bus_addr(read_from + ((ppu.LY + ppu.SCY) % 8)); 
-                sprite_offset = sprite_metadata.to_display[i].X % 8;
-                fetched_sprite |= fetched_sprite << sprite_offset*2; //get the sprite into the correct position
-            }
-        }
-
-        //send pixels to LCD;
-        x_pos++; 
     }
 }
 
@@ -205,6 +105,14 @@ PPU_t* init_ppu(byte* perm_ptr){
     pid_t pid = -1;
     if(pipe(fifo) == -1){
         LOG(ERROR, "Failed to create pipe for ppu and lcd");
+        exit(1);
+    }
+    if(fcntl(fifo[0], F_SETFL, O_NONBLOCK) == -1){
+        LOG(ERROR, "Failed to make pipe non blocking");
+        exit(1);
+    }
+    if(fcntl(fifo[1], F_SETFL, O_NONBLOCK) == -1){
+        LOG(ERROR, "Failed to make pipe non blocking");
         exit(1);
     }
     ppu.mem_perm_ptr = perm_ptr;
@@ -219,8 +127,8 @@ PPU_t* init_ppu(byte* perm_ptr){
         init_lcd(fifo[0]);
         lcd_loop();
     } else {
-#endif
         close(fifo[0]);
+#endif
         ppu.LCD_fifo_write = fifo[1];
         ppu.lcd_pid = pid;
         ppu.STAT.flags.unused = 1; //must be set to one according to documentation
@@ -248,13 +156,48 @@ uint16_t read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type){
     return row;
 }
 
-void draw_line(address bg_idx_addr){
-    uint8_t bg_tile_idx;
-    uint16_t bg_row, obj_row;
+//TODO worry about window drawing
+void draw_line(){
+    uint8_t tile_idx, x, y, x_idx, x_off, y_off, i;
+    uint8_t bg_pixel, obj_pixel;
+    uint16_t row, tile_map, addr;
+    scanline line;
+    obj_t tmp_spt;
 
-    bg_tile_idx = read_bus(bg_idx_addr);
+    x = (ppu.SCX + 159) / 8;
+    x_off = (ppu.SCX + 159) % 8;
+    y = (ppu.SCY + 143) / 8;
+    y_off = (ppu.SCY + 143) % 8;
 
-    bg_row = read_tile_row(bg_tile_idx, ppu.ctx.cur_y_cord % 8, BG);
+    tile_map = ppu.LCDC.flags.bg_tile_map_select ? 0x9C00 : 0x9800;
+
+    memset(&line, 0, sizeof(scanline));
+
+    addr = tile_map + (y * 32);
+    for(i = 0; i < 21; i++){
+        addr += x;
+        tile_idx = read_bus(addr);
+        row = read_tile_row(tile_idx, y_off, BG);
+        line.bg_data[i] |= row >> x_off * 2;
+        line.bg_data[i + 1] |= row << (8 - x_off) * 2;
+        x++;
+        if(x == 32) x = 0; //reset x to account for rollover
+    }
+
+    //write all of the sprite data into an aligned array
+    for(i = 0; i < 10; i++){
+        memcpy(&tmp_spt, &spt_metadata.to_display[i], sizeof(obj_t));
+        row = read_tile_row(tmp_spt.tile_index, tmp_spt.Y % 8, OBJ);
+        x_idx = tmp_spt.X / 8;
+        x_off = tmp_spt.X % 8;
+        x_idx %= 20;
+        line.sprite_data[x_idx] |= row >> x_off * 2;
+        line.sprite_data[x_idx + 1] |= row << (8 - x_off) * 2;
+    }
+
+    line.bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false;
+    write(ppu.LCD_fifo_write, &line, sizeof(scanline));
+    return;
 }
 
 //TODO rework the stat editor
@@ -284,8 +227,6 @@ void ppu_cycle(){
                 if(ppu.LY == VBLANK_END){
                     ppu.LY = 0;
                     //set up the parameters for drawing
-                    ppu.ctx.cur_y_cord = ppu.SCY + 143;
-                    ppu.ctx.cur_x_cord = ppu.SCX + 159;
                     *ppu.mem_perm_ptr = OAM_BLOCKED;
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
@@ -301,12 +242,6 @@ void ppu_cycle(){
                 scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
                 *ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
-                ppu.ctx.cur_x_cord = ppu.SCX + 159;
-                ppu.ctx.cur_y_cord++;
-                tmp = ppu.LCDC.flags.bg_tile_map_select ? 0x9C00 : 0x9800;
-                tmp += (ppu.ctx.cur_y_cord / 8) * 0x20; //get the index of the tile data
-                tmp += (ppu.ctx.cur_x_cord / 8); //get the index of the tile data
-                ppu.ctx.bg_idx_addr = tmp;
             }
             break;
         case DRAW:
@@ -315,10 +250,7 @@ void ppu_cycle(){
                 ppu.STAT.flags.PPU_mode = HBLANK;
                 if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
-            } else {
-                //draw one row to the screen //8 pixels
-                //maybe I should just draw the entire line at once?
-                draw_line(ppu.ctx.bg_idx_addr);
+                draw_line();
             }
             break;
         default:

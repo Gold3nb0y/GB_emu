@@ -10,13 +10,11 @@ char SB_data = 0; //hack for writting to console
 
 byte read_joycon(){
     printf("joycon not implemented\n");
-    exit(0);
     return 0;
 }
 
 void write_joycon( byte data){
     printf("joycon not implemented\n");
-    exit(0);
 }
 
 byte read_SB(){
