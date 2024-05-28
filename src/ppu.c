@@ -230,6 +230,7 @@ PPU_t* init_ppu(byte* perm_ptr){
     return &ppu;
 }
 
+//TODO rework the stat editor
 void ppu_cycle(){
     ppu.dot_counter++; //used to keep track of progress internally
     switch(ppu.STAT.flags.PPU_mode){
@@ -239,6 +240,7 @@ void ppu_cycle(){
                 ppu.dot_counter = 0;
                 if(ppu.LY == VBLANK_START){
                     ppu.STAT.flags.PPU_mode = VBLANK;
+                    ppu.vblank_int();
                     if(ppu.STAT.flags.mode_1_int) ppu.stat_int();
                 } else {
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;

@@ -72,9 +72,13 @@ void examine(char *cmd){
 }
 
 void step(){
-    cpu_cycle();
-    for(int i = 0; i < 8; i++)
-        ppu_tick(); //tick ppu 8 times per cpu cycle
+    uint8_t t_cycles, m_cycles;
+    t_cycles = cpu_cycle();
+    for(int i = 0; i < t_cycles; i++)
+        ppu_cycle(); //tick ppu 1 times per my cycle count
+                     
+    m_cycles = t_cycles / 4;
+    timer_cycle(m_cycles); 
 }
 
 void run_until_break(){

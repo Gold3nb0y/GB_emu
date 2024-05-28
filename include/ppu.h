@@ -102,7 +102,7 @@ typedef struct PPU_struct{
 } PPU_t;
 
 PPU_t* init_ppu(byte* perm_ptr);
-void ppu_tick();
+void ppu_cycle();
 int cleanup_ppu();
 byte read_LCDC();
 void write_LCDC(byte data);

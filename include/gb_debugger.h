@@ -5,6 +5,7 @@
 
 #include <common.h>
 #include <cpu.h>
+#include <timer.h>
 #include <main_bus.h>
 #include <stdint.h>
 #include <opcodes.h>

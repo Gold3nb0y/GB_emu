@@ -48,11 +48,12 @@ typedef struct CPU_struct{
     uint16_t SP;
     uint16_t PC;
     byte IME; //interrupts enabled
+    bool halt;
     union{
         uint8_t data;
         struct{
             uint8_t VBlank: 1;
-            uint8_t LCD: 1;
+            uint8_t STAT: 1;
             uint8_t Timer: 1;
             uint8_t Serial: 1;
             uint8_t Joypad: 1;
@@ -63,7 +64,7 @@ typedef struct CPU_struct{
         uint8_t data;
         struct{
             uint8_t VBlank: 1;
-            uint8_t LCD: 1;
+            uint8_t STAT: 1;
             uint8_t Timer: 1;
             uint8_t Serial: 1;
             uint8_t Joypad: 1;

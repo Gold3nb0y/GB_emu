@@ -3,6 +3,7 @@
 #include "log.h"
 #include "main_bus.h"
 #include "mapper.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,8 +11,8 @@
 #include <sys/types.h>
 
 static void ld_rr(byte opcode);
-static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg);
-static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg);
+static void get_single_reg(byte opcode, uint8_t offset, uint8_t** reg);
+static void get_double_reg(byte opcode, uint8_t offset, uint16_t** reg);
 
 CPU_t cpu;
 extern const instr instr_table[];
@@ -48,6 +49,7 @@ CPU_t* init_cpu(main_bus_t* bus){
     cpu.HL = 0x8403;
     cpu.SP = 0xFFFE;
     cpu.PC = 0x100;
+    cpu.halt = false;
     cpu.bus = bus;
 
     //give the emulator a refrence to the CPU
@@ -55,7 +57,7 @@ CPU_t* init_cpu(main_bus_t* bus){
 }
 
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
-static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){
+static void get_double_reg(byte opcode, uint8_t offset, uint16_t** reg){
     switch((opcode >> offset) & 0x3){
         case BC:
             *reg = &cpu.BC;
@@ -74,7 +76,7 @@ static void get_16bit_register(byte opcode, uint8_t offset, uint16_t** reg){
 
 //register are stored as 3 bit values in the opcode, offset if the number of bits to right shift
 //this can only be used for reading with case MEM
-static void get_8bit_register(byte opcode, uint8_t offset, uint8_t** reg){
+static void get_single_reg(byte opcode, uint8_t offset, uint8_t** reg){
     switch(opcode >> offset & 0x7){
         case B:
             *reg = &cpu.B;
@@ -213,7 +215,7 @@ static void prefixed_instr(byte opcode){
 #ifdef DEBUG_CPU
     LOGF(DEBUG,"PREFIXED OPCODE: 0x%02x",opcode);
 #endif
-    get_8bit_register(opcode, 0, &reg);
+    get_single_reg(opcode, 0, &reg);
 
     if(reg == NULL){
         mem_val = read_bus(cpu.HL);
@@ -313,8 +315,8 @@ static void prefixed_instr(byte opcode){
 static void ld_rr(byte opcode){
     uint8_t *dest, *src;
     uint8_t tmp;
-    get_8bit_register(opcode, 3, &dest);
-    get_8bit_register(opcode, 0, &src);
+    get_single_reg(opcode, 3, &dest);
+    get_single_reg(opcode, 0, &src);
     if(src == NULL){
         tmp = read_bus(cpu.HL);
         src = &tmp;
@@ -379,8 +381,8 @@ void logic_arith_8bit(byte operation, uint8_t value){
 
 //handle the remaining instructions that are easier to handle individually
 uint8_t exec_instr(byte opcode){
-    uint16_t *temp_reg16;
-    uint8_t *temp_reg8;
+    uint16_t *tmp_double_reg;
+    uint8_t *tmp_single_reg;
     uint16_t addr; 
     byte tmp_byte;
     int8_t rel_off;
@@ -399,16 +401,19 @@ uint8_t exec_instr(byte opcode){
     //jump table
     switch(opcode){
         case LD_B_B ... LD_A_A:
-            if(opcode == HALT) return 0;
-            ld_rr(opcode);
+            if(opcode == HALT) {
+                cpu.halt = true;
+            } else {
+                ld_rr(opcode);
+            }
             break;
         case ADD_B ... CP_A:
-            get_8bit_register(opcode, 0, &temp_reg8);
-            if(temp_reg8 == NULL){
+            get_single_reg(opcode, 0, &tmp_single_reg);
+            if(tmp_single_reg == NULL){
                 tmp_byte = read_bus(cpu.HL);
-                temp_reg8 = &tmp_byte;
+                tmp_single_reg = &tmp_byte;
             }
-            logic_arith_8bit(opcode >> 3 & 7, *temp_reg8);
+            logic_arith_8bit(opcode >> 3 & 7, *tmp_single_reg);
             break;
         case ADD_n:
         case ADC_N:
@@ -426,17 +431,17 @@ uint8_t exec_instr(byte opcode){
         case LD_DE: 
         case LD_HL: 
         case LD_SP: 
-            get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 = tmp_word;
+            get_double_reg(opcode, 4, &tmp_double_reg);
+            *tmp_double_reg = tmp_word;
             break;
         case STR_BC:
         case STR_DE:
         case STRI_HL:
         case STRD_HL:
-            get_16bit_register(opcode, 4, &temp_reg16);
+            get_double_reg(opcode, 4, &tmp_double_reg);
             if(opcode == STRD_HL) 
-                temp_reg16 = &cpu.HL;
-            write_bus(*temp_reg16, cpu.A);
+                tmp_double_reg = &cpu.HL;
+            write_bus(*tmp_double_reg, cpu.A);
             if(opcode == STRD_HL)
                 cpu.HL--;
             else if(opcode == STRI_HL)
@@ -446,17 +451,17 @@ uint8_t exec_instr(byte opcode){
         case INC_DE: 
         case INC_HL: 
         case INC_SP: 
-            get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 += 1;
+            get_double_reg(opcode, 4, &tmp_double_reg);
+            *tmp_double_reg += 1;
             break;
         case ADD_HL_BC: 
         case ADD_HL_DE: 
         case ADD_HL_HL: 
         case ADD_HL_SP: //sum reg into HL
-            get_16bit_register(opcode, 4, &temp_reg16);
+            get_double_reg(opcode, 4, &tmp_double_reg);
             cpu.FLAGS.N = 0;
-            check_flags_add_16bit(cpu.HL, *temp_reg16);
-            cpu.HL += *temp_reg16;
+            check_flags_add_16bit(cpu.HL, *tmp_double_reg);
+            cpu.HL += *tmp_double_reg;
             //cpu.FLAGS.Z = !cpu.HL;
             cpu.FLAGS.N = 0;
             break;
@@ -464,10 +469,10 @@ uint8_t exec_instr(byte opcode){
         case LD_A_DE:
         case LDI_A_HL:
         case LDD_A_HL: //load memory value into a
-            get_16bit_register(opcode, 4, &temp_reg16);
+            get_double_reg(opcode, 4, &tmp_double_reg);
             if(opcode == LDD_A_HL) 
-                temp_reg16 = &cpu.HL;
-            cpu.A = read_bus(*temp_reg16);
+                tmp_double_reg = &cpu.HL;
+            cpu.A = read_bus(*tmp_double_reg);
             if(opcode == LDD_A_HL)
                 cpu.HL--;
             else if(opcode == LDI_A_HL)
@@ -477,8 +482,8 @@ uint8_t exec_instr(byte opcode){
         case DEC_DE: 
         case DEC_HL: 
         case DEC_SP: //dec 16 bit reg
-            get_16bit_register(opcode, 4, &temp_reg16);
-            *temp_reg16 -= 1;
+            get_double_reg(opcode, 4, &tmp_double_reg);
+            *tmp_double_reg -= 1;
             break;
         case INC_A:
         case INC_B:
@@ -487,11 +492,11 @@ uint8_t exec_instr(byte opcode){
         case INC_E:
         case INC_H:
         case INC_L:
-            get_8bit_register(opcode, 3, &temp_reg8);
+            get_single_reg(opcode, 3, &tmp_single_reg);
             cpu.FLAGS.N = 0;
-            check_HC_add(*temp_reg8, 1);
-            *temp_reg8 += 1;
-            cpu.FLAGS.Z = !(*temp_reg8);
+            check_HC_add(*tmp_single_reg, 1);
+            *tmp_single_reg += 1;
+            cpu.FLAGS.Z = !(*tmp_single_reg);
             break;
         case INC_MEM: //read write addr so handle seperatly
             tmp_byte = read_bus(cpu.HL);
@@ -508,10 +513,10 @@ uint8_t exec_instr(byte opcode){
         case DEC_E: 
         case DEC_H: 
         case DEC_L: //dec 8bit register
-            get_8bit_register(opcode, 3, &temp_reg8);
-            check_HC_sub(*temp_reg8, 1);
-            *temp_reg8 -= 1;
-            cpu.FLAGS.Z = !(*temp_reg8);
+            get_single_reg(opcode, 3, &tmp_single_reg);
+            check_HC_sub(*tmp_single_reg, 1);
+            *tmp_single_reg -= 1;
+            cpu.FLAGS.Z = !(*tmp_single_reg);
             cpu.FLAGS.N = 1;
             break;
         case DEC_MEM:
@@ -528,8 +533,8 @@ uint8_t exec_instr(byte opcode){
         case LD_E:  
         case LD_H:  
         case LD_L:  //ld 8 bit register immidiate
-            get_8bit_register(opcode, 3, &temp_reg8);
-            *temp_reg8 = tmp_byte; //replace with read soon
+            get_single_reg(opcode, 3, &tmp_single_reg);
+            *tmp_single_reg = tmp_byte; //replace with read soon
             break;
         case LD_MEM:
             write_bus(cpu.HL, tmp_byte);
@@ -603,77 +608,125 @@ uint8_t exec_instr(byte opcode){
             break;
         case JR_NZ:
             rel_off = tmp_byte;
-            if(!cpu.FLAGS.Z) cpu.PC += rel_off;
+            if(!cpu.FLAGS.Z){
+                cpu.PC += rel_off;
+                cycles += 4;
+            }
             break;
         case JR_Z:
             rel_off = tmp_byte;
-            if(cpu.FLAGS.Z) cpu.PC += rel_off;
+            if(cpu.FLAGS.Z){
+                cpu.PC += rel_off;
+                cycles += 4;
+            }
             break;
         case JR_NC:
             rel_off = tmp_byte;
-            if(!cpu.FLAGS.C) cpu.PC += rel_off;
+            if(!cpu.FLAGS.C){
+                cpu.PC += rel_off;
+                cycles += 4;
+            }
             break;
         case JR_C:
             rel_off = tmp_byte;
-            if(cpu.FLAGS.C) cpu.PC += rel_off;
+            if(cpu.FLAGS.C){
+                cpu.PC += rel_off;
+                cycles += 4;
+            }
             break;
         case RET_NZ:
-            if(!cpu.FLAGS.Z) do_ret();
-            break;
-        case JNZ:
-            if(!cpu.FLAGS.Z) cpu.PC = tmp_word;
-            break;
-        case JMP:
-            cpu.PC = tmp_word;
-            break;
-        case CALL_NZ:
-            if(!cpu.FLAGS.Z) do_call(tmp_word);
+            if(!cpu.FLAGS.Z) {
+                do_ret();
+                cycles += 12;
+            }
             break;
         case RET_Z:
-            if(cpu.FLAGS.Z) do_ret();
+            if(cpu.FLAGS.Z){
+                do_ret();
+                cycles += 12;
+            }
+            break;
+        case RET_NC:
+            if(!cpu.FLAGS.C){
+                do_ret();
+                cycles += 12;
+            }
+            break;
+        case RET_C:
+            if(cpu.FLAGS.C){
+                do_ret();
+                cycles += 12;
+            }
             break;
         case RET:
             do_ret();
-            break;
-        case JZ:
-            if(cpu.FLAGS.Z) cpu.PC = tmp_word;
-            break;
-        case CB_PREFIX:
-            prefixed_instr(tmp_byte);
-            break;
-        case CALL_Z:
-            if(cpu.FLAGS.Z) do_call(tmp_word);
-            break;
-        case CALL:
-            do_call(tmp_word);
-            break;
-        case RET_NC:
-            if(!cpu.FLAGS.C) do_ret();
-            break;
-        case JNC:
-            if(!cpu.FLAGS.C) cpu.PC = tmp_word;
-            break;
-        case CALL_NC:
-            if(!cpu.FLAGS.C) do_call(tmp_word);
-            break;
-        case RET_C:
-            if(cpu.FLAGS.C) do_ret();
             break;
         case RETI:
             cpu.IME = 1;
             do_ret();
             break;
+        case JNZ:
+            if(!cpu.FLAGS.Z){
+                cpu.PC = tmp_word;
+                cycles += 4;
+            }
+            break;
+        case JZ:
+            if(cpu.FLAGS.Z){
+                cpu.PC = tmp_word;
+                cycles += 4;
+            }
+            break;
+        case JNC:
+            if(!cpu.FLAGS.C){
+                cpu.PC = tmp_word;
+                cycles += 4;
+            }
+            break;
         case JC:
-            if(cpu.FLAGS.C) cpu.PC = tmp_word;
+            if(cpu.FLAGS.C){
+                cpu.PC = tmp_word;
+                cycles += 4;
+            }
+            break;
+        case JMP:
+            cpu.PC = tmp_word;
+            break;
+        case CB_PREFIX:
+            prefixed_instr(tmp_byte);
+            break;
+        case CALL_NZ:
+            if(!cpu.FLAGS.Z){
+                do_call(tmp_word);
+                cycles += 12;
+            }
+            break;
+        case CALL_Z:
+            if(cpu.FLAGS.Z){
+                do_call(tmp_word);
+                cycles += 12;
+            }
+            break;
+        case CALL:
+            do_call(tmp_word);
+            break;
+        case CALL_NC:
+            if(!cpu.FLAGS.C){
+                do_call(tmp_word);
+                cycles += 12;
+            }
             break;
         case CALL_C:
-            if(cpu.FLAGS.C) do_call(tmp_word);
+            if(cpu.FLAGS.C){
+                do_call(tmp_word);
+                cycles += 12;
+            }
             break;
         case POP_BC:
         case POP_DE:
         case POP_HL:
-            get_16bit_register(opcode, 4, &temp_reg16);
-            pop(temp_reg16);
+            get_double_reg(opcode, 4, &tmp_double_reg);
+            pop(tmp_double_reg);
             break;
         case POP_AF:
             pop(&cpu.AF);
@@ -682,8 +735,8 @@ uint8_t exec_instr(byte opcode){
         case PUSH_BC:
         case PUSH_DE:
         case PUSH_HL:
-            get_16bit_register(opcode, 4, &temp_reg16);
-            push(*temp_reg16);
+            get_double_reg(opcode, 4, &tmp_double_reg);
+            push(*tmp_double_reg);
             break;
         case PUSH_AF:
             push(cpu.AF);
@@ -761,7 +814,7 @@ uint8_t exec_instr(byte opcode){
             LOGF(ERROR, "something went wrong opcode: 0x%x\n", opcode);
             dump_cpu();
     }
-    cycles += instr_table[opcode].M_cycles;
+    cycles += instr_table[opcode].T_cycles;
     return cycles;
 }
 
@@ -776,25 +829,49 @@ void dump_cpu(){
     LOG(DEBUG,"------------------");
 }
 
-void handle_interrupt(){
+void handle_interrupt(address int_addr){
     cpu.IME = 0; //disallow other interupts from being executed
+    do_call(int_addr);
 }
 
-//TODO think about running instructions in parrellel with Fetch/execute overlap
-//alternatively, I can also run in sequence, and code in the different stages later.
-//basically, I could try to fetch something every cycle, this would involve maintaining a transitional state 
-//Maybe I could break the instructions into tasklets that preform an operation each iteration?
-//another thing I coudl do is the just estimate all the registers and grab the regardless of the instruction
 uint8_t cpu_cycle(){
     byte opcode;
     uint8_t cycles;
 
+    //check for interupts up front
+    if(cpu.IF.data != 0){
+        cycles = 0;
+        cpu.halt = false;
+        if(cpu.IF.flags.VBlank && cpu.IE.flags.VBlank && cpu.IME){
+            cpu.IF.flags.VBlank = 0;
+            handle_interrupt(0x40);
+            cycles = 20;
+            goto done;
+        }
+        if(cpu.IF.flags.STAT && cpu.IE.flags.STAT && cpu.IME){
+            cpu.IF.flags.STAT = 0;
+            handle_interrupt(0x48);
+            cycles = 20;
+            goto done;
+        }
+        if(cpu.IF.flags.Timer && cpu.IE.flags.Timer && cpu.IME){
+            cpu.IF.flags.Timer = 0;
+            handle_interrupt(0x50);
+            cycles = 20;
+            goto done;
+        }
+    }
 
+    if(cpu.halt){
+        cycles = 4;
+        goto done;
+    }
     //fetch
     opcode = read_bus(cpu.PC++); 
     //decode and exec merged together for now
     cycles = exec_instr(opcode);
 
+done:
     return cycles;
 }
 
@@ -819,7 +896,7 @@ void vblank_int(){
 }
 
 void stat_int(){
-    cpu.IF.flags.LCD = 1;
+    cpu.IF.flags.STAT = 1;
 }
 
 void timer_int(){

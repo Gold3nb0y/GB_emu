@@ -7,7 +7,7 @@ typedef struct{
     uint8_t opcode;
     char instr_fmt[0x18];
     uint8_t size;
-    uint8_t M_cycles;
+    uint8_t T_cycles;
 } instr;
 
 enum opcodes{
