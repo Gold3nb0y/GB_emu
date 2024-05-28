@@ -126,25 +126,25 @@ void read_obj(uint8_t idx, obj_t *obj){
 }
 
 struct sprite_stack {
-    obj_t to_display[10]; //up to 10 sprites can be displayed for any 1 scanline
+    obj_t to_display[10]; //up to 10 sprite_metadata can be displayed for any 1 scanline
     uint8_t count;
     uint8_t current;
 };
 
-struct sprite_stack sprites = {0};
+struct sprite_stack sprite_metadata = {0};
 
 //takes 80 cycles
 void scan_OAM(uint16_t scanline){
     uint8_t count = 0;
     obj_t tmp_obj = {0};
     uint8_t sprite_size = 0;
-    memset(&sprites, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
+    memset(&sprite_metadata, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
     for(uint8_t i = 0; i < 40; i++){
         read_obj(i, &tmp_obj);
         if(tmp_obj.X > 0 && scanline+16 >= tmp_obj.Y && count < 10){
             sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
             if(scanline+16 < tmp_obj.Y+sprite_size){
-                memcpy(&sprites.to_display[count], &tmp_obj, sizeof(obj_t));
+                memcpy(&sprite_metadata.to_display[count], &tmp_obj, sizeof(obj_t));
                 count++;
             }
         }
@@ -186,10 +186,10 @@ void scanline(uint16_t scanline){
 
         // fetch sprite 
         for(uint8_t i = 0; i < 10; i++){
-            if(sprites.to_display[i].X <= (x_pos+1)*8){
-                read_from = get_tile_address(sprites.to_display[i].tile_index, true);
+            if(sprite_metadata.to_display[i].X <= (x_pos+1)*8){
+                read_from = get_tile_address(sprite_metadata.to_display[i].tile_index, true);
                 fetched_sprite = read_bus_addr(read_from + ((ppu.LY + ppu.SCY) % 8)); 
-                sprite_offset = sprites.to_display[i].X % 8;
+                sprite_offset = sprite_metadata.to_display[i].X % 8;
                 fetched_sprite |= fetched_sprite << sprite_offset*2; //get the sprite into the correct position
             }
         }
@@ -230,6 +230,33 @@ PPU_t* init_ppu(byte* perm_ptr){
     return &ppu;
 }
 
+uint16_t read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type){
+    uint16_t row;
+    address addr;
+
+    if(type != OBJ && ppu.LCDC.flags.tile_data_select == 0){
+        addr = 0x9000;
+        addr += (int8_t)tile_idx * 0x10;
+    } else {
+        addr = 0x8000;
+        addr += tile_idx * 0x10;
+    }
+
+    addr += row_num * 2; //2 bytes per row
+    
+    row = read_bus_addr(addr);
+    return row;
+}
+
+void draw_line(address bg_idx_addr){
+    uint8_t bg_tile_idx;
+    uint16_t bg_row, obj_row;
+
+    bg_tile_idx = read_bus(bg_idx_addr);
+
+    bg_row = read_tile_row(bg_tile_idx, ppu.ctx.cur_y_cord % 8, BG);
+}
+
 //TODO rework the stat editor
 void ppu_cycle(){
     ppu.dot_counter++; //used to keep track of progress internally
@@ -246,6 +273,8 @@ void ppu_cycle(){
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
+            } else {
+                //hblank logic
             }
             break;
         case VBLANK:
@@ -254,17 +283,30 @@ void ppu_cycle(){
                 ppu.dot_counter = 0;
                 if(ppu.LY == VBLANK_END){
                     ppu.LY = 0;
+                    //set up the parameters for drawing
+                    ppu.ctx.cur_y_cord = ppu.SCY + 143;
+                    ppu.ctx.cur_x_cord = ppu.SCX + 159;
                     *ppu.mem_perm_ptr = OAM_BLOCKED;
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
             }
+            //do nothing
             break;
         case OAM_SCAN:
             //last cycle of OAM SCAN
             if(ppu.dot_counter + 1 == DRAW_START){
+                address tmp;
+                //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
+                scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
                 *ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
+                ppu.ctx.cur_x_cord = ppu.SCX + 159;
+                ppu.ctx.cur_y_cord++;
+                tmp = ppu.LCDC.flags.bg_tile_map_select ? 0x9C00 : 0x9800;
+                tmp += (ppu.ctx.cur_y_cord / 8) * 0x20; //get the index of the tile data
+                tmp += (ppu.ctx.cur_x_cord / 8); //get the index of the tile data
+                ppu.ctx.bg_idx_addr = tmp;
             }
             break;
         case DRAW:
@@ -273,6 +315,10 @@ void ppu_cycle(){
                 ppu.STAT.flags.PPU_mode = HBLANK;
                 if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
+            } else {
+                //draw one row to the screen //8 pixels
+                //maybe I should just draw the entire line at once?
+                draw_line(ppu.ctx.bg_idx_addr);
             }
             break;
         default:

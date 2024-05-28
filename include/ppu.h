@@ -41,6 +41,12 @@ typedef struct object{
     uint8_t sprite_flag;
 } obj_t;
 
+enum tile_type {
+    OBJ = 0,
+    BG,
+    WIN,
+};
+
 /* 
  * The PPU struct is responsible for maintaining the state of the screen;
  * background: 32x32 tiles wide
@@ -58,11 +64,17 @@ typedef struct object{
  * lcd_pid: pid of process running the LCD
  */
 typedef struct PPU_struct{
-    pixel_tile background[0x20][0x20];
-    pixel_tile window[0x20][0x20];
+    //I will try to go directly from memory for now
+    //pixel_tile background[0x20][0x20];
+    //pixel_tile window[0x20][0x20];
     byte* mem_perm_ptr;
     IRQ vblank_int;
     IRQ stat_int;
+    struct ppu_context{
+        uint8_t cur_x_cord;
+        uint8_t cur_y_cord;
+        address bg_idx_addr;
+    } ctx;
     uint8_t WX;
     uint8_t WY;
     uint8_t SCX;
