@@ -113,21 +113,20 @@ void run(){
 #else
         if((t_cycles = cpu_cycle(0)) == 0) emu.running = false; //trigger HALT
         ticks += t_cycles;
-        //based of the value of t_cycles do DMA, ppu, and init_timer
-        //
+        m_cycles = t_cycles / 4;
+
         if(emu.main_bus->DMA_info.DMA_enabled){
-            for(uint8_t i = 0; i < t_cycles; i++)
+            for(uint8_t i = 0; i < m_cycles; i++) //one tick per machine cycle
                 DMA_tick();
         }
 
         //handle all of the ppu stuff
         dots = t_cycles; //1 dots per t_cycle
         for(uint8_t i = 0; i < dots; i++)
-            ppu_tick(); //ppu has to be ticked once at a time
+            ppu_cycle(); //ppu has to be ticked once at a time
 
-        m_cycles = t_cycles / 4;
 
-        timer_cycle(m_cycles); 
+        timer_cycle(m_cycles);
 #endif
     }
     LOG(INFO, "Ending ROM execution");

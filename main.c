@@ -6,6 +6,9 @@ int main(int argc, char* argv[]){
     if(argc < 2) 
         LOG(ERROR, "Please specify ROM");
 
+    setvbuf(stdin, NULL, _IONBF, 0);
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     //argv[1] contains the rom file name
     create_emulator(argv[1]);
 #ifdef TEST

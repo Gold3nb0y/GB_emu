@@ -1,3 +1,4 @@
+#ifndef NATTACH_DB
 #include <gb_debugger.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -231,10 +232,8 @@ void start_debugger(main_bus_t *bus, CPU_t *cpu){
     db.breakpoints = calloc(0x10, sizeof(address));
     db.num_bp = 0;
     db.max_bp = 0x10;
-    setvbuf(stdin, NULL, _IONBF, 0);
-    setvbuf(stdout, NULL, _IONBF, 0);
 
     signal(SIGINT, debug);
     debug();
 }
-
+#endif

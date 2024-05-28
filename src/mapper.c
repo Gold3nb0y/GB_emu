@@ -27,7 +27,7 @@ mapper_t* create_mapper(uint8_t num_ROM, uint8_t num_VRAM, uint8_t num_EXRAM, ui
     }
 
     //setup the arrays to be used 
-    map->ROM_banks = Malloc(sizeof(size_t)*(1<<num_ROM));
+    map->ROM_banks = Malloc(sizeof(size_t)*(2<<num_ROM));
 
     //setup the rest
     map->VRAM_banks = Malloc(sizeof(size_t)*num_VRAM);
