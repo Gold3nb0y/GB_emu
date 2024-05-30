@@ -42,17 +42,7 @@ uint8_t* Mmap(void* addr, size_t length, int prot, int flags, int fd, off_t offs
 typedef uint16_t address;
 typedef uint8_t byte;
 
-//for lcd and ppu
-typedef uint8_t pixel_row[8]; //oversized array 
-typedef pixel_row pixel_tile[8];
-typedef pixel_tile sprite;
-typedef pixel_tile tall_sprite[2];
-
 typedef void(*IRQ)();
-
-struct LCD_data{
-    uint64_t data;
-};
 
 #define SUCCESS 0;
 #define FAIL -1;

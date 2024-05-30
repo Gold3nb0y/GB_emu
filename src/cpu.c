@@ -330,7 +330,7 @@ static void ld_rr(byte opcode){
 
 //covered in test_arith
 void logic_arith_8bit(byte operation, uint8_t value){
-    uint8_t result;
+    uint8_t result = 1;
 
     switch(operation){ 
         case ADD:
@@ -373,6 +373,8 @@ void logic_arith_8bit(byte operation, uint8_t value){
         case CP: //same as sub but does not update A
             result = sub(cpu.A, value);
             break;
+        default:
+            LOG(ERROR, "something went wrong\n");
     }
     //ZF can be set at the end since the arithmetic is the same
     cpu.FLAGS.Z = !result; //assign to 1 or 0 depending on weather or not the value was set

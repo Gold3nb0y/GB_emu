@@ -64,6 +64,29 @@ void write_LYC(byte data){
     ppu.LYC = data;
 }
 
+byte read_BGP(){
+    return ppu.BGP;
+}
+
+void write_BGP(byte data){
+    ppu.BGP = data;
+}
+
+byte read_OBP0(){
+    return ppu.OBP0;
+}
+
+void write_OBP0(byte data){
+    ppu.OBP0 = data & 0xFC;
+}
+
+byte read_OBP1(){
+    return ppu.OBP1;
+}
+
+void write_OBP1(byte data){
+    ppu.OBP1 = data & 0xFC;
+}
 
 void read_obj(uint8_t idx, obj_t *obj){
     obj->Y = read_bus(OAM_START + idx * sizeof(obj_t));
@@ -138,13 +161,13 @@ PPU_t* init_ppu(byte* perm_ptr){
     return &ppu;
 }
 
-uint16_t read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type){
-    uint16_t row;
+void read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type, uint8_t *first, uint8_t *second){
     address addr;
 
     if(type != OBJ && ppu.LCDC.flags.tile_data_select == 0){
         addr = 0x9000;
         addr += (int8_t)tile_idx * 0x10;
+        //printf("addr of tile row 0x%x\n", addr);
     } else {
         addr = 0x8000;
         addr += tile_idx * 0x10;
@@ -152,50 +175,63 @@ uint16_t read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type){
 
     addr += row_num * 2; //2 bytes per row
     
-    row = read_bus_addr(addr);
-    return row;
+    printf("data addr: 0x%04x\n", addr);
+    *first = read_bus(addr);
+    *second = read_bus(addr+1);
 }
 
 //TODO worry about window drawing
 void draw_line(){
-    uint8_t tile_idx, x, y, x_idx, x_off, y_off, i;
-    uint8_t bg_pixel, obj_pixel;
-    uint16_t row, tile_map, addr;
+    uint8_t tile_idx, x, y, x_off, y_off, i, j;
+    uint8_t first, second;
+    uint16_t row, tile_map, addr, count;
     scanline line;
     obj_t tmp_spt;
 
-    x = (ppu.SCX + 159) / 8;
-    x_off = (ppu.SCX + 159) % 8;
-    y = (ppu.SCY + 143) / 8;
-    y_off = (ppu.SCY + 143) % 8;
+    x = ppu.SCX;
+    //x = (count % 256) / 8;
+    x_off = ppu.SCX % 8;
+    count = ppu.LY;
+    count += ppu.SCY;
+    //printf("LY 0x%x SCY 0x%x\n", ppu.LY, ppu.SCY);
+    y = (count % 256) / 8;
+    count = ppu.SCY + ppu.LY;
+    y_off = count % 8;
+
+    //printf("y_val 0x%x\n", y);
 
     tile_map = ppu.LCDC.flags.bg_tile_map_select ? 0x9C00 : 0x9800;
 
     memset(&line, 0, sizeof(scanline));
 
+    //x will overflow to 0 and wrap around
     addr = tile_map + (y * 32);
-    for(i = 0; i < 21; i++){
-        addr += x;
-        tile_idx = read_bus(addr);
-        row = read_tile_row(tile_idx, y_off, BG);
-        line.bg_data[i] |= row >> x_off * 2;
-        line.bg_data[i + 1] |= row << (8 - x_off) * 2;
+    for(i = 0; i < 20; i++){
+        tile_idx = read_bus(addr + (x / 8));
+        printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x ", addr, x, y, y_off, tile_idx);
+        read_tile_row(tile_idx, y_off, BG, &first, &second);
+        for(j = x_off; j < 8; j++){
+            line.bg_pixels[count++] = first >> (7 - j) & 1;
+        }
         x++;
-        if(x == 32) x = 0; //reset x to account for rollover
     }
 
+#ifndef BG_ONLY
     //write all of the sprite data into an aligned array
-    for(i = 0; i < 10; i++){
+    for(i = 0; i < spt_metadata.count; i++){
         memcpy(&tmp_spt, &spt_metadata.to_display[i], sizeof(obj_t));
-        row = read_tile_row(tmp_spt.tile_index, tmp_spt.Y % 8, OBJ);
-        x_idx = tmp_spt.X / 8;
-        x_off = tmp_spt.X % 8;
-        x_idx %= 20;
-        line.sprite_data[x_idx] |= row >> x_off * 2;
-        line.sprite_data[x_idx + 1] |= row << (8 - x_off) * 2;
+        y_off = tmp_spt.flags.Y_flip ? ~(tmp_spt.Y % 8) : tmp_spt.Y % 8;
+        line.spt_data[i].sprite_row = read_tile_row(tmp_spt.tile_index, y_off, OBJ);
+        line.spt_data[i].pallette = tmp_spt.flags.DMG_pallette ? ppu.OBP1 : ppu.OBP0;
+        line.spt_data[i].X = tmp_spt.X;
+        line.spt_data[i].sprite_flag = tmp_spt.sprite_flag;
     }
+#endif
 
-    line.bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false;
+    line.bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false; //only useful for cgb
+    line.BGP = ppu.BGP;
+    line.num_spt = spt_metadata.count;
+
     write(ppu.LCD_fifo_write, &line, sizeof(scanline));
     return;
 }
@@ -237,7 +273,6 @@ void ppu_cycle(){
         case OAM_SCAN:
             //last cycle of OAM SCAN
             if(ppu.dot_counter + 1 == DRAW_START){
-                address tmp;
                 //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
                 scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
@@ -251,6 +286,7 @@ void ppu_cycle(){
                 if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
                 draw_line();
+                if(ppu.LY == 0) getchar();
             }
             break;
         default:

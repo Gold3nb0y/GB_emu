@@ -176,6 +176,14 @@ void next(){
     return;
 }
 
+void set(char* cmd){
+    address addr;
+    
+    sscanf(cmd, "p %hx", &addr);
+    db.cpu->PC = addr;
+    return;
+}
+
 void debug(){
     char* cmd;
     bool done = false;
@@ -211,6 +219,9 @@ void debug(){
             case 's':
                 step();
                 status();
+                break;
+            case 'p':
+                set(cmd);
                 break;
             case 'q':
                 done = true;

@@ -4,6 +4,7 @@
 #include "main_bus.h"
 #include "lcd.h"
 #include <fcntl.h>
+#include <raylib.h>
 #include <stdint.h>
 
 #define HIEGHT 160
@@ -39,7 +40,17 @@ typedef struct object{
     uint8_t Y;
     uint8_t X;
     uint8_t tile_index;
-    uint8_t sprite_flag;
+    union{
+        uint8_t sprite_flag;
+        struct {
+            uint8_t priority: 1;
+            uint8_t Y_flip: 1;
+            uint8_t X_flip: 1;
+            uint8_t DMG_pallette: 1;
+            uint8_t bank: 1;
+            uint8_t cgb_pallette: 3;
+        } flags;
+    };
 } obj_t;
 
 enum tile_type {
@@ -82,6 +93,9 @@ typedef struct PPU_struct{
     uint8_t SCY;
     uint8_t LY;
     uint8_t LYC;
+    uint8_t BGP;
+    uint8_t OBP0;
+    uint8_t OBP1;
     obj_t obj_buf[10];
     uint8_t ob_idx;
     union {
@@ -132,5 +146,11 @@ void write_WY(byte data);
 byte read_LY();
 byte read_LYC();
 void write_LYC(byte data);
+byte read_BGP();
+void write_BGP(byte data);
+byte read_OBP0();
+void write_OBP0(byte data);
+byte read_OBP1();
+void write_OBP1(byte data);
 
 #endif

@@ -9,12 +9,12 @@
 char SB_data = 0; //hack for writting to console
 
 byte read_joycon(){
-    printf("joycon not implemented\n");
+    //printf("joycon not implemented\n");
     return 0;
 }
 
 void write_joycon( byte data){
-    printf("joycon not implemented\n");
+    //printf("joycon not implemented\n");
 }
 
 byte read_SB(){

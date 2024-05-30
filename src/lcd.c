@@ -2,6 +2,7 @@
 #include <poll.h>
 #include <raylib.h>
 #include <stdint.h>
+#include <string.h>
 
 LCD_t lcd;
 
@@ -27,28 +28,70 @@ void recv_fifo(scanline *line){
     return;
 }
 
-//bg_to_obj is only necessary for gameboy color
-uint8_t merge(uint8_t bg_pix, uint8_t obj_pix, bool bg_to_obj){
-    uint8_t merged;
-    if(obj_pix != 0){
-        merged = obj_pix;
-    } else {
-        merged = bg_pix;
-    }
-    return merged;
+void color_correct(uint8_t *pix, uint8_t pallette){
+    *pix = pallette >> (*pix * 2) & 3;
 }
 
-void parse_line(scanline *line, uint8_t y_idx){
-    uint8_t x_idx, merged, obj_pix, bg_pix, i, j;
+//bg_to_obj is only necessary for gameboy color
+void merge(uint8_t x, uint8_t y, uint8_t obj_pix, bool priority){
+    uint8_t bg_pix, merged;
 
+    merged = 0;
+
+    if(x < 8 || x > 168)
+        return;
+
+    bg_pix = lcd.screen[y][x-8];
+
+    lcd.screen[y][x-8] = merged;
+    if(priority){
+        if(bg_pix > 0){
+            merged = bg_pix;
+        } else {
+            merged = obj_pix;
+        }
+    } else {
+        if(obj_pix > 0){
+            merged = obj_pix;
+        } else {
+            merged = bg_pix;
+        }
+    }
+
+    lcd.screen[y][x-8] = merged;
+}
+
+
+void parse_line(scanline *line, uint8_t y_idx){
+    uint8_t x_idx, obj_pix, bg_pix, i, j;
+    uint16_t reverse_row;
+    sprite_t sprite;
+
+    //color correct and store background data;
     x_idx = 0;
     for(i = 1; i < 21; i++){
         for(j = 0; j < 8; j++){
             bg_pix = (line->bg_data[i] >> j * 2) & 0x3;
-            obj_pix = (line->sprite_data[i] >> j * 2) & 0x3;
-            merged = merge(bg_pix, obj_pix, line->bg_to_obj);
-            lcd.screen[y_idx][x_idx] = merged;
+            color_correct(&bg_pix, line->BGP);
+            //printf("bg_pix corrected color: %d\n",bg_pix);
+            lcd.screen[y_idx][x_idx] = bg_pix;
             x_idx++;
+        }
+    }
+
+    for(i = 0; i < line->num_spt; i++){
+        memcpy(&sprite, &line->spt_data[i], sizeof(sprite_t));
+        if(sprite.flags.X_flip){
+            reverse_row = 0;
+            for(j = 0; j < 8; j++){
+                reverse_row |= sprite.sprite_row >> (14 - (j*2)) & 3;
+            }
+            sprite.sprite_row = reverse_row;
+        }
+        for(j = 0; j < 8; j++){
+            obj_pix = (sprite.sprite_row >> j * 2) & 0x3;
+            color_correct(&obj_pix, sprite.pallette);
+            merge(sprite.X + j, y_idx, obj_pix, sprite.flags.priority);
         }
     }
 }

@@ -1,12 +1,12 @@
 #define a series of objects in an array
 OBJS := main.o build/mapper.o build/main_bus.o build/common.o build/lcd.o build/emulator.o build/log.o build/cart.o build/cpu.o build/ppu.o build/io_ports.o build/gb_debugger.o build/opcodes.o build/timer.o
 CC = gcc
-CFLAGS = -g -Wall -I./include/ -D LOG_OFF
+CFLAGS = -g -Wall -O3 -I./include/ -D BG_ONLY -D NATTACH_DB
 LFLAGS := -lraylib
 
 #comment to build without tests
 #test = true
-#debug = true
+debug = true
 
 ifdef debug
 CFLAGS += -D LOG_OFF

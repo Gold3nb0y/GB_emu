@@ -44,7 +44,7 @@ uint64_t init_io(main_bus_t *bus){
     }
     
     //joypad is special since it is only written to by hardware.
-    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
+    //init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
     init_io_reg(&ret[i++], SB, read_SB, write_SB);
     init_io_reg(&ret[i++], SC, NULL, write_SC);
     init_io_reg(&ret[i++], DIV, NULL, NULL);
@@ -67,6 +67,9 @@ uint64_t init_io(main_bus_t *bus){
     init_io_reg(&ret[i++], WY, read_WY, write_WY);
     init_io_reg(&ret[i++], LY, read_LY, NULL);
     init_io_reg(&ret[i++], LYC, read_LYC, write_LYC);
+    init_io_reg(&ret[i++], BGP, read_BGP, write_BGP);
+    init_io_reg(&ret[i++], OBP0, read_OBP0, write_OBP0);
+    init_io_reg(&ret[i++], OBP1, read_OBP1, write_OBP1);
 
     init_io_reg(&ret[i++], VBK, read_VBK, write_VBK);
     init_io_reg(&ret[i++], DMA, NULL, start_DMA);
@@ -85,6 +88,7 @@ void create_emulator(char* filename){
     //deref has higher precidence
     bool is_CGB;
     signal(SIGINT, cleanup);
+    signal(SIGPIPE, cleanup);
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
     emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
@@ -92,7 +96,7 @@ void create_emulator(char* filename){
     emu.clock = init_timer();
     emu.cpu = init_cpu(emu.main_bus);
     emu.ppu = init_ppu(&emu.main_bus->mem_perms);
-    //sleep(2); //give the ppu process so time to start up
+    sleep(2); //give the ppu process so time to start up
     emu.ppu->vblank_int = vblank_int;
     emu.ppu->stat_int = stat_int;
     emu.clock->timer_int = timer_int;

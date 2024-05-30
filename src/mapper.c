@@ -133,19 +133,28 @@ void write_rom_only(address addr, byte data){
 byte read_MBC1(address addr){
     byte ret = 0xFF; //for now return -1 if nothing is read
     if(addr >= 0 && addr < 0x4000){ //rom bank 00
-        if(!map->MCB1.banking_mode_select)
+        if(!map->MCB1.banking_mode_select){
             ret = map->ROM_banks[0][addr];
-        else 
+        } else{ 
             ret = map->ROM_banks[map->MCB1.reg2 << 5][addr];
+        }
     } else if (addr >= 0x4000 && addr < 0x8000) { //rom bank 01, swichable via map
         ret = map->ROM_banks[map->cur_ROM][addr-0x4000];
     } else if (addr >= 0xA000 && addr < 0xC000 && map->MCB1.RAM_enabled) { //vram, switchable if CGB
-        if(!map->MCB1.banking_mode_select)
+        if(!map->MCB1.banking_mode_select){
             ret = map->EXRAM_banks[0][addr-0xA000];
-        else
+        } else {
             ret = map->EXRAM_banks[map->cur_EXRAM][addr-0xA000];
+        }
     }
     return ret;
+}
+
+void update_rom(){
+    map->cur_ROM = map->MCB1.reg1 + (map->MCB1.reg2 << 5);
+    //can't exceed the max
+    map->cur_ROM %= map->num_ROM;
+    if(map->cur_ROM == 0) map->cur_ROM = 1;
 }
 
 //https://gbdev.io/pandocs/MBC1.html
@@ -156,19 +165,22 @@ void write_MBC1(address addr, byte data){
         return;
     } else if(addr >= 0x2000 && addr < 0x4000){
         map->MCB1.reg1 = data & 0x1f;
+        update_rom();
     } else if(addr >= 0x4000 && addr < 0x6000){
         map->MCB1.reg2 = data & 0x3;
+        update_rom();
     } else if(addr >= 0x6000 && addr < 0x8000){
         map->MCB1.banking_mode_select = data & 1 ? 1 : 0;
+        update_rom();
     } else if(addr > 0xA000 && addr < 0xC000 && map->MCB1.RAM_enabled){
         LOGF(DEBUG, "write to memory bank with address %p", map->EXRAM_banks[map->cur_EXRAM]);
         map->EXRAM_banks[map->cur_EXRAM][addr-0xA000] = data;
         return;
     }
     
-    map->cur_ROM = (map->MCB1.reg2 << 5) | map->MCB1.reg2;
-    if(!map->cur_ROM)
-        map->cur_ROM = 1;
+    //map->cur_ROM = (map->MCB1.reg2 << 5) | map->MCB1.reg2;
+    //if(!map->cur_ROM)
+    //    map->cur_ROM = 1;
     map->cur_EXRAM = map->MCB1.reg2;
 
     return;
