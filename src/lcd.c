@@ -29,7 +29,7 @@ void recv_fifo(scanline *line){
 }
 
 void color_correct(uint8_t *pix, uint8_t pallette){
-    *pix = pallette >> (*pix * 2) & 3;
+    *pix = (pallette >> (*pix * 2)) & 3;
 }
 
 //bg_to_obj is only necessary for gameboy color
@@ -68,32 +68,38 @@ void parse_line(scanline *line, uint8_t y_idx){
     sprite_t sprite;
 
     //color correct and store background data;
-    x_idx = 0;
-    for(i = 1; i < 21; i++){
-        for(j = 0; j < 8; j++){
-            bg_pix = (line->bg_data[i] >> j * 2) & 0x3;
-            color_correct(&bg_pix, line->BGP);
-            //printf("bg_pix corrected color: %d\n",bg_pix);
-            lcd.screen[y_idx][x_idx] = bg_pix;
-            x_idx++;
-        }
+    for(i = 0; i < 160; i++){
+        bg_pix = line->bg_pixels[i];
+        color_correct(&bg_pix, line->BGP);
+        //printf("bg_pix corrected color: %d\n",bg_pix);
+        lcd.screen[y_idx][i] = bg_pix;
     }
 
-    for(i = 0; i < line->num_spt; i++){
-        memcpy(&sprite, &line->spt_data[i], sizeof(sprite_t));
-        if(sprite.flags.X_flip){
-            reverse_row = 0;
-            for(j = 0; j < 8; j++){
-                reverse_row |= sprite.sprite_row >> (14 - (j*2)) & 3;
-            }
-            sprite.sprite_row = reverse_row;
-        }
-        for(j = 0; j < 8; j++){
-            obj_pix = (sprite.sprite_row >> j * 2) & 0x3;
-            color_correct(&obj_pix, sprite.pallette);
-            merge(sprite.X + j, y_idx, obj_pix, sprite.flags.priority);
-        }
-    }
+    //for(i = 0; i < line->num_spt; i++){
+    //    memcpy(&sprite, &line->spt_data[i], sizeof(sprite_t));
+    //    if(sprite.flags.X_flip){
+    //        reverse_row = 0;
+    //        for(j = 0; j < 8; j++){
+    //            reverse_row |= sprite.sprite_row >> (14 - (j*2)) & 3;
+    //        }
+    //        sprite.sprite_row = reverse_row;
+    //    }
+    //    for(j = 0; j < 8; j++){
+    //        obj_pix = (sprite.sprite_row >> j * 2) & 0x3;
+    //        color_correct(&obj_pix, sprite.pallette);
+    //        merge(sprite.X + j, y_idx, obj_pix, sprite.flags.priority);
+    //    }
+    //}
+}
+
+void draw_grid(){
+    uint64_t i;
+
+    for(i = 0; i < 20; i++)
+        DrawLine((i * 8) * SCALE, 0, (i * 8) * SCALE, 144 * SCALE, RED);
+
+    for(i = 0; i < 18; i++)
+        DrawLine(0, (i * 8) * SCALE, 160 * SCALE, (i * 8) * SCALE, RED);
 }
 
 void render_screen(){
@@ -107,10 +113,10 @@ void render_screen(){
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, WHITE);
                     break;
                 case 1:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, LIGHTGRAY);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLUE);
                     break;
                 case 2:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, DARKGRAY);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, PURPLE);
                     break;
                 case 3:
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLACK);
@@ -122,6 +128,7 @@ void render_screen(){
             }
         }
     }
+    draw_grid();
 }
 
 void lcd_loop(){

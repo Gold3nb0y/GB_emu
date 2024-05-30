@@ -165,8 +165,8 @@ void read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type, uint8_t *fir
     address addr;
 
     if(type != OBJ && ppu.LCDC.flags.tile_data_select == 0){
-        addr = 0x9000;
-        addr += (int8_t)tile_idx * 0x10;
+        addr = tile_idx < 0x80 ? 0x9000 : 0x8000;
+        addr += tile_idx * 0x10;
         //printf("addr of tile row 0x%x\n", addr);
     } else {
         addr = 0x8000;
@@ -175,7 +175,7 @@ void read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type, uint8_t *fir
 
     addr += row_num * 2; //2 bytes per row
     
-    printf("data addr: 0x%04x\n", addr);
+    //printf("data addr: 0x%04x\n", addr);
     *first = read_bus(addr);
     *second = read_bus(addr+1);
 }
@@ -195,7 +195,8 @@ void draw_line(){
     count += ppu.SCY;
     //printf("LY 0x%x SCY 0x%x\n", ppu.LY, ppu.SCY);
     y = (count % 256) / 8;
-    count = ppu.SCY + ppu.LY;
+    count = ppu.SCY;
+    count += ppu.LY;
     y_off = count % 8;
 
     //printf("y_val 0x%x\n", y);
@@ -206,14 +207,26 @@ void draw_line(){
 
     //x will overflow to 0 and wrap around
     addr = tile_map + (y * 32);
+    count = 0;
     for(i = 0; i < 20; i++){
         tile_idx = read_bus(addr + (x / 8));
-        printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x ", addr, x, y, y_off, tile_idx);
+        printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
         read_tile_row(tile_idx, y_off, BG, &first, &second);
-        for(j = x_off; j < 8; j++){
-            line.bg_pixels[count++] = first >> (7 - j) & 1;
+        for(j = x % 8; j < 8; j++){
+            line.bg_pixels[count] = first >> (7 - j) & 1;
+            line.bg_pixels[count++] |= (second >> (7 - j) & 1) << 1;
+            x++;
         }
-        x++;
+    }
+
+    //finish off the rest of the values
+    printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
+    read_tile_row(tile_idx, y_off, BG, &first, &second);
+    tile_idx = read_bus(addr + (x / 8));
+    for(;count < 160; count++){
+            line.bg_pixels[count] = first >> (7 - j) & 1;
+            line.bg_pixels[count++] |= (second >> (7 - j) & 1) << 1;
+            x++;
     }
 
 #ifndef BG_ONLY
