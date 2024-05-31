@@ -3,28 +3,38 @@
 #include <raylib.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/shm.h>
 
-LCD_t lcd;
+LCD_t *lcd;
 
+uint8_t screen[SCRN_HEIGHT][SCRN_WIDTH]; //store all information that is read from the ppu
+                                         
 void cleanup_lcd(int sig){
     LOG(INFO, "Cleaning up the LCD handler");
+    shmdt(lcd);
     CloseWindow();
-    close(lcd.lcd_fifo_read);
     exit(0);
 }
 
 //TODO create window for raylib, set a signal listener to kill the LCD process
-void init_lcd(int read_fd){
+void init_lcd(int shm_id){
     InitWindow(SCRN_WIDTH * SCALE, SCRN_HEIGHT * SCALE, "Game Boi");
     LOG(INFO, "LCD created");
     signal(SIGPIPE, cleanup_lcd); //set a cleanup listener
-    memset(&lcd, 0, sizeof(LCD_t));
-    lcd.lcd_fifo_read = read_fd;    
-    return;
-}
+    lcd = shmat(shm_id, NULL, 0);
+    if(lcd == (void *)-1){
+        perror("shmat");
+        exit(0);
+    }
 
-void recv_fifo(scanline *line){
-    read(lcd.lcd_fifo_read, line, sizeof(scanline));
+    //init lcd data;
+    while(lcd->spinlock);
+    lcd->spinlock = 1;
+    memset(lcd->lcd_data, 0, sizeof(scanline) * 144);
+    lcd->bg_to_obj = false;
+    lcd->BGP = 0;
+    lcd->spinlock = 0;
+
     return;
 }
 
@@ -41,9 +51,9 @@ void merge(uint8_t x, uint8_t y, uint8_t obj_pix, bool priority){
     if(x < 8 || x > 168)
         return;
 
-    bg_pix = lcd.screen[y][x-8];
+    bg_pix = screen[y][x-8];
 
-    lcd.screen[y][x-8] = merged;
+    screen[y][x-8] = merged;
     if(priority){
         if(bg_pix > 0){
             merged = bg_pix;
@@ -58,21 +68,19 @@ void merge(uint8_t x, uint8_t y, uint8_t obj_pix, bool priority){
         }
     }
 
-    lcd.screen[y][x-8] = merged;
+    screen[y][x-8] = merged;
 }
 
 
-void parse_line(scanline *line){
-    uint8_t x_idx, obj_pix, bg_pix, i, j;
-    uint16_t reverse_row;
+void parse_line(scanline *line, uint8_t y){
+    uint8_t obj_pix, bg_pix, i, j;
     sprite_t sprite;
 
     //color correct and store background data;
     for(i = 0; i < 160; i++){
         bg_pix = line->bg_pixels[i];
-        color_correct(&bg_pix, line->BGP);
-        //printf("bg_pix corrected color: %d\n",bg_pix);
-        lcd.screen[line->Y][i] = bg_pix;
+        color_correct(&bg_pix, lcd->BGP);
+        screen[y][i] = bg_pix;
     }
 
     for(i = 0; i < line->num_spt; i++){
@@ -80,7 +88,7 @@ void parse_line(scanline *line){
         for(j = 0; j < 8; j++){
             obj_pix = sprite.flags.X_flip ? sprite.pixels[7-j] : sprite.pixels[j];
             color_correct(&obj_pix, sprite.pallette);
-            merge(sprite.X + j, line->Y, obj_pix, sprite.flags.priority);
+            merge(sprite.X + j, y, obj_pix, sprite.flags.priority);
         }
     }
 }
@@ -99,7 +107,7 @@ void render_screen(){
     uint8_t pix;
     for(uint64_t i = 0; i < SCRN_HEIGHT; i++){
         for(uint64_t j = 0; j < SCRN_WIDTH; j++){
-            pix = lcd.screen[i][j];
+            pix = screen[i][j];
             //TODO fetch the color from the pixel stored at that location
             switch(pix){
                 case 0:
@@ -125,13 +133,14 @@ void render_screen(){
 }
 
 void lcd_loop(){
-    struct pollfd events = {lcd.lcd_fifo_read, POLLIN, 0};
-    scanline line;
+    SetTargetFPS(60);
     while(!WindowShouldClose()){
-        if(poll(&events, 1, 0)){
-            recv_fifo(&line);
-            parse_line(&line);
-        } 
+        while(lcd->spinlock);
+        lcd->spinlock = 1;
+        for(uint8_t i = 0; i < 144; i++)
+            parse_line(&lcd->lcd_data[i], i);
+        lcd->spinlock = 0;
+
         BeginDrawing();
         render_screen();
         EndDrawing();

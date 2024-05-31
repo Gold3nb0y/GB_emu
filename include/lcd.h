@@ -3,6 +3,9 @@
 #include "common.h"
 #include "signal.h"
 #include <stdint.h>
+#include <sys/time.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 /*
  * my idea for this LCD class is to fork into a process that will consume writes from the
@@ -14,6 +17,7 @@
 #define BG_WIDTH 256
 #define BG_HEIGHT 256
 #define SCALE 3 //scale up the image to be a bit larger
+#define FRAME_RATE 16666
 
 typedef struct spt_data{
     uint8_t pixels[8];
@@ -36,19 +40,17 @@ typedef struct {
     uint8_t bg_pixels[160];
     sprite_t spt_data[10];
     uint8_t num_spt;
-    uint8_t Y;
-    uint8_t BGP;
-    bool bg_to_obj;
 } scanline;
-
 
 /*
  * lcd_fifo_read: read side of the pipe, allows the lcd to work as a consumer
  * ppu: pointer to the ppu so I can change the STAT register if needbe
  */
 typedef struct lcd_struct {
-    int lcd_fifo_read;
-    uint8_t screen[SCRN_HEIGHT][SCRN_WIDTH]; //store all information that is read from the ppu
+    _Atomic uint8_t spinlock;
+    uint8_t BGP;
+    bool bg_to_obj;
+    scanline lcd_data[144];
 } LCD_t;
 
 

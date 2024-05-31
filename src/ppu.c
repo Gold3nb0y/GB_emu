@@ -4,6 +4,8 @@
 
 static PPU_t ppu;
 
+extern LCD_t *lcd;
+
 //The following functions are used for IO_registers
 byte read_LCDC(){
     return ppu.LCDC.data;
@@ -125,20 +127,15 @@ void scan_OAM(uint16_t scanline){
 
 //this might change later if the piping doesn't work out, but for now I think this looks good
 PPU_t* init_ppu(byte* perm_ptr){
-    int fifo[2];
-    pid_t pid = -1;
-    if(pipe(fifo) == -1){
-        LOG(ERROR, "Failed to create pipe for ppu and lcd");
+    int shm_id, pid;
+
+    shm_id = shmget(IPC_PRIVATE, sizeof(LCD_t), IPC_CREAT|0600);
+    ppu.shm_id = shm_id;
+    if(shm_id < 0){
+        perror("failed to create shm");
         exit(1);
     }
-    if(fcntl(fifo[0], F_SETFL, O_NONBLOCK) == -1){
-        LOG(ERROR, "Failed to make pipe non blocking");
-        exit(1);
-    }
-    if(fcntl(fifo[1], F_SETFL, O_NONBLOCK) == -1){
-        LOG(ERROR, "Failed to make pipe non blocking");
-        exit(1);
-    }
+
     ppu.mem_perm_ptr = perm_ptr;
     *ppu.mem_perm_ptr = MEM_FREE;
     ppu.STAT.flags.PPU_mode = 1; //start in mode 0;
@@ -147,13 +144,15 @@ PPU_t* init_ppu(byte* perm_ptr){
 #ifndef HEADLESS
     pid = fork();
     if(!pid){
-        close(fifo[1]);
-        init_lcd(fifo[0]);
+        init_lcd(shm_id);
         lcd_loop();
     } else {
-        close(fifo[0]);
 #endif
-        ppu.LCD_fifo_write = fifo[1];
+        lcd = shmat(shm_id, NULL, 0);
+        if(lcd == (void *)-1){
+            perror("shmat");
+            exit(0);
+        }
         ppu.lcd_pid = pid;
         ppu.STAT.flags.unused = 1; //must be set to one according to documentation
 #ifndef HEADLESS
@@ -249,23 +248,23 @@ void draw_line(){
     }
 #endif
 
-    line.bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false; //only useful for cgb
-    line.BGP = ppu.BGP;
     line.num_spt = spt_metadata.count;
-    line.Y = ppu.LY;
 
-    write(ppu.LCD_fifo_write, &line, sizeof(scanline));
+    while(lcd->spinlock);
+    lcd->spinlock = 1;
+    memcpy(&lcd->lcd_data[ppu.LY], &line, sizeof(scanline));
+    lcd->spinlock = 0;
     return;
 }
 
 //TODO rework the stat editor
-void ppu_cycle(){
-    ppu.dot_counter++; //used to keep track of progress internally
+void ppu_cycle(uint8_t dots){
+    //ppu.dot_counter++; //used to keep track of progress internally
     switch(ppu.STAT.flags.PPU_mode){
         case HBLANK:
-            if(ppu.dot_counter == DOTS_PER_SCANLINE){
+            if(ppu.dot_counter + dots >= DOTS_PER_SCANLINE){
                 ppu.LY++;
-                ppu.dot_counter = 0;
+                ppu.dot_counter = (ppu.dot_counter + dots) % 456;
                 if(ppu.LY == VBLANK_START){
                     ppu.STAT.flags.PPU_mode = VBLANK;
                     ppu.vblank_int();
@@ -274,28 +273,24 @@ void ppu_cycle(){
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
-            } else {
-                //hblank logic
             }
             break;
         case VBLANK:
-            if(ppu.dot_counter == DOTS_PER_SCANLINE){
+            if(ppu.dot_counter + dots >= DOTS_PER_SCANLINE){
                 ppu.LY++;
-                ppu.dot_counter = 0;
+                ppu.dot_counter = (ppu.dot_counter + dots) % 456;
                 if(ppu.LY == VBLANK_END){
                     ppu.LY = 0;
-                    usleep(1);
                     //set up the parameters for drawing
                     //*ppu.mem_perm_ptr = OAM_BLOCKED;
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
             }
-            //do nothing
             break;
         case OAM_SCAN:
             //last cycle of OAM SCAN
-            if(ppu.dot_counter + 1 == DRAW_START){
+            if(ppu.dot_counter + dots >= DRAW_START){
                 //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
                 scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
@@ -304,12 +299,18 @@ void ppu_cycle(){
             break;
         case DRAW:
             //in reality the size of DRAW will very
-            if(ppu.dot_counter + 1 == 0x100){
+            if(ppu.dot_counter + dots >= 0x100){
                 ppu.STAT.flags.PPU_mode = HBLANK;
                 if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
                 draw_line();
-                //if(ppu.LY == 0) getchar();
+                if(ppu.LY == 0){
+                    while(lcd->spinlock);
+                    lcd->spinlock = 1;
+                    lcd->bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false; //only useful for cgb
+                    lcd->BGP = ppu.BGP;
+                    lcd->spinlock = 0;
+                }
             }
             break;
         default:
@@ -317,6 +318,7 @@ void ppu_cycle(){
             exit(1);
             break;
     }
+    ppu.dot_counter += dots;
     if(ppu.LY == ppu.LYC){
         ppu.STAT.flags.coincidence_flag = 1;
         if(ppu.STAT.flags.LYC_stat_int) ppu.stat_int();
@@ -325,6 +327,6 @@ void ppu_cycle(){
 }
 
 int cleanup_ppu(){
-    close(ppu.LCD_fifo_write);
+    shmdt(lcd);
     return 0;
 }

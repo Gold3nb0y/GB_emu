@@ -4,8 +4,9 @@
 #include "main_bus.h"
 #include "lcd.h"
 #include <fcntl.h>
-#include <raylib.h>
 #include <stdint.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 
 #define HIEGHT 160
 #define WIDTH 144
@@ -76,9 +77,6 @@ enum tile_type {
  * lcd_pid: pid of process running the LCD
  */
 typedef struct PPU_struct{
-    //I will try to go directly from memory for now
-    //pixel_tile background[0x20][0x20];
-    //pixel_tile window[0x20][0x20];
     byte* mem_perm_ptr;
     IRQ vblank_int;
     IRQ stat_int;
@@ -124,12 +122,12 @@ typedef struct PPU_struct{
         } flags;
     } STAT;
     uint16_t dot_counter; //to keep track of mode and adjust for pentalites
-    int LCD_fifo_write; //I want to use a pipe to emulate the fifo pipe to the LCD
+    int shm_id;
     pid_t lcd_pid;
 } PPU_t;
 
 PPU_t* init_ppu(byte* perm_ptr);
-void ppu_cycle();
+void ppu_cycle(uint8_t dots);
 int cleanup_ppu();
 byte read_LCDC();
 void write_LCDC(byte data);

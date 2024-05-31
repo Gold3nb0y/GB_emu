@@ -89,6 +89,7 @@ void create_emulator(char* filename){
     bool is_CGB;
     signal(SIGINT, cleanup);
     signal(SIGPIPE, cleanup);
+    signal(SIGCHLD, cleanup);
     load_cart(&emu.cart, filename);
     is_CGB = emu.cart.CGB_flag == 0x80 || emu.cart.CGB_flag == 0xC0;
     emu.main_bus = create_bus(emu.cart.num_ROM, emu.cart.val_RAM, is_CGB, filename);
@@ -112,34 +113,36 @@ void run(){
     struct timeval stop, start;
     uint8_t t_cycles, dots, m_cycles;
     ticks = t_cycles = dots = 0;
+    uint64_t status, result;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
 #ifndef NATTACH_DB
         start_debugger(emu.main_bus, emu.cpu);
 #else
-        //gettimeofday(&start, NULL);
-        if((t_cycles = cpu_cycle(0)) == 0) emu.running = false; //trigger HALT
-        ticks += t_cycles;
-        m_cycles = t_cycles / 4;
+        gettimeofday(&start, NULL);
+        ticks = 0;
+        for(uint64_t i = 0; i < 0x100; i++){
+            if((t_cycles = cpu_cycle(0)) == 0) emu.running = false; //trigger HALT
+            m_cycles = t_cycles / 4;
 
-        if(emu.main_bus->DMA_info.DMA_enabled){
-            for(uint8_t i = 0; i < m_cycles; i++) //one tick per machine cycle
-                DMA_tick();
+            if(emu.main_bus->DMA_info.DMA_enabled){
+                for(uint8_t j = 0; j < m_cycles; j++) //one tick per machine cycle
+                    DMA_tick();
+            }
+
+            //handle all of the ppu stuff
+            dots = t_cycles; //1 dots per t_cycle
+            ppu_cycle(dots); //ppu has to be ticked once at a time
+
+
+            timer_cycle(m_cycles);
+            ticks += m_cycles;
         }
-
-        //handle all of the ppu stuff
-        dots = t_cycles; //1 dots per t_cycle
-        for(uint8_t i = 0; i < dots; i++)
-            ppu_cycle(); //ppu has to be ticked once at a time
-
-
-        timer_cycle(m_cycles);
-        //gettimeofday(&stop, NULL);
-        //diff = stop.tv_usec - start.tv_usec;
-        //usleep(1);
-        //printf("m_cycles %d diff %ld\n", m_cycles, diff);
-        //if(m_cycles > diff)
-        //    usleep(m_cycles - diff); //align to the real clock as best as possible
+        gettimeofday(&stop, NULL);
+        diff = stop.tv_usec - start.tv_usec;
+        //printf("ticks %ld diff %ld\n", ticks, diff);
+        if(ticks > diff)
+            usleep(ticks - diff); //align to the real clock as best as possible
 #endif
     }
     LOG(INFO, "Ending ROM execution");
