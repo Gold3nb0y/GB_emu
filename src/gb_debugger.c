@@ -1,3 +1,4 @@
+#include <string.h>
 #ifndef NATTACH_DB
 #include <gb_debugger.h>
 #include <stdint.h>
@@ -186,6 +187,7 @@ void set(char* cmd){
 
 void debug(){
     char* cmd;
+    char prev_command[0x100];
     bool done = false;
     uint64_t count = 0;
     address addr;
@@ -193,6 +195,10 @@ void debug(){
     status();
     while(!done){
         cmd = read_command();
+        if(cmd[0] == '\n') {
+            free(cmd);
+            cmd = prev_command;
+        }
         switch(cmd[0]){
             case 'a': 
                 sscanf(cmd, "a %hx %ld", &addr, &count);
@@ -232,7 +238,10 @@ void debug(){
             default:
                 puts("Invalid command");
         }
-        free(cmd);
+        if(cmd != prev_command){
+            strncpy(prev_command, cmd, 0xF8);
+            free(cmd);
+        }
     }
     exit(0);
 }

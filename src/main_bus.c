@@ -81,8 +81,10 @@ success:
 byte read_bus_generic(address addr){
     byte ret = 0;
     if(addr >= VRAM_START && addr < EXRAM_START){
+#ifdef NATTACH_DB 
         if(bus->mem_perms == OAM_VRAM_BLOCKED)
             return 0xFF; //junk
+#endif
         ret = bus->VRAM[addr-VRAM_START];
     } else if(addr >= WRAM0_START && addr < WRAMN_START){
         ret = bus->WRAM_B0[addr-WRAM0_START];
@@ -91,8 +93,10 @@ byte read_bus_generic(address addr){
     } else if(addr >= WRAMN_END && addr < OAM_START){
         LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
     } else if(addr >= OAM_START && addr < OAM_END){
+#ifdef NATTACH_DB 
         if(bus->mem_perms != MEM_FREE)
             return 0xFF; //junk
+#endif
         ret = bus->OAM[addr-OAM_START];
     } else if(addr >= OAM_END && addr < IO_START){
         LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);

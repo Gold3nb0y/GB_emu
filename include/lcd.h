@@ -16,7 +16,7 @@
 #define SCALE 3 //scale up the image to be a bit larger
 
 typedef struct spt_data{
-    uint16_t sprite_row;
+    uint8_t pixels[8];
     uint8_t X;
     uint8_t pallette;
     union{
@@ -33,9 +33,10 @@ typedef struct spt_data{
 } sprite_t;
 
 typedef struct {
-    uint16_t bg_pixels[160];
+    uint8_t bg_pixels[160];
     sprite_t spt_data[10];
     uint8_t num_spt;
+    uint8_t Y;
     uint8_t BGP;
     bool bg_to_obj;
 } scanline;

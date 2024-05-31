@@ -1,6 +1,7 @@
 #ifndef EMU_H
 #define EMU_H
 #include "common.h"
+#include <sys/time.h>
 #include "gb_debugger.h"
 #include "timer.h"
 #include "cpu.h"

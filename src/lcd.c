@@ -62,7 +62,7 @@ void merge(uint8_t x, uint8_t y, uint8_t obj_pix, bool priority){
 }
 
 
-void parse_line(scanline *line, uint8_t y_idx){
+void parse_line(scanline *line){
     uint8_t x_idx, obj_pix, bg_pix, i, j;
     uint16_t reverse_row;
     sprite_t sprite;
@@ -72,24 +72,17 @@ void parse_line(scanline *line, uint8_t y_idx){
         bg_pix = line->bg_pixels[i];
         color_correct(&bg_pix, line->BGP);
         //printf("bg_pix corrected color: %d\n",bg_pix);
-        lcd.screen[y_idx][i] = bg_pix;
+        lcd.screen[line->Y][i] = bg_pix;
     }
 
-    //for(i = 0; i < line->num_spt; i++){
-    //    memcpy(&sprite, &line->spt_data[i], sizeof(sprite_t));
-    //    if(sprite.flags.X_flip){
-    //        reverse_row = 0;
-    //        for(j = 0; j < 8; j++){
-    //            reverse_row |= sprite.sprite_row >> (14 - (j*2)) & 3;
-    //        }
-    //        sprite.sprite_row = reverse_row;
-    //    }
-    //    for(j = 0; j < 8; j++){
-    //        obj_pix = (sprite.sprite_row >> j * 2) & 0x3;
-    //        color_correct(&obj_pix, sprite.pallette);
-    //        merge(sprite.X + j, y_idx, obj_pix, sprite.flags.priority);
-    //    }
-    //}
+    for(i = 0; i < line->num_spt; i++){
+        memcpy(&sprite, &line->spt_data[i], sizeof(sprite_t));
+        for(j = 0; j < 8; j++){
+            obj_pix = sprite.flags.X_flip ? sprite.pixels[7-j] : sprite.pixels[j];
+            color_correct(&obj_pix, sprite.pallette);
+            merge(sprite.X + j, line->Y, obj_pix, sprite.flags.priority);
+        }
+    }
 }
 
 void draw_grid(){
@@ -128,20 +121,16 @@ void render_screen(){
             }
         }
     }
-    draw_grid();
+    //draw_grid();
 }
 
 void lcd_loop(){
     struct pollfd events = {lcd.lcd_fifo_read, POLLIN, 0};
-    uint8_t y = 0;
     scanline line;
     while(!WindowShouldClose()){
         if(poll(&events, 1, 0)){
             recv_fifo(&line);
-            parse_line(&line, y);
-            y++;
-            if(y == 144) y = 0;
-            //do something to store the data
+            parse_line(&line);
         } 
         BeginDrawing();
         render_screen();

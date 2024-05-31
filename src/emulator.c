@@ -108,6 +108,8 @@ void create_emulator(char* filename){
 
 void run(){
     uint64_t ticks;
+    uint64_t diff;
+    struct timeval stop, start;
     uint8_t t_cycles, dots, m_cycles;
     ticks = t_cycles = dots = 0;
     LOG(INFO, "Beginning ROM execution");
@@ -115,6 +117,7 @@ void run(){
 #ifndef NATTACH_DB
         start_debugger(emu.main_bus, emu.cpu);
 #else
+        //gettimeofday(&start, NULL);
         if((t_cycles = cpu_cycle(0)) == 0) emu.running = false; //trigger HALT
         ticks += t_cycles;
         m_cycles = t_cycles / 4;
@@ -131,6 +134,12 @@ void run(){
 
 
         timer_cycle(m_cycles);
+        //gettimeofday(&stop, NULL);
+        //diff = stop.tv_usec - start.tv_usec;
+        //usleep(1);
+        //printf("m_cycles %d diff %ld\n", m_cycles, diff);
+        //if(m_cycles > diff)
+        //    usleep(m_cycles - diff); //align to the real clock as best as possible
 #endif
     }
     LOG(INFO, "Ending ROM execution");

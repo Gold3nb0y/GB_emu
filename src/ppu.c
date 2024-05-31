@@ -1,5 +1,6 @@
 #include "ppu.h"
 #include <stdint.h>
+#include <unistd.h>
 
 static PPU_t ppu;
 
@@ -180,17 +181,27 @@ void read_tile_row(uint8_t tile_idx, uint8_t row_num, uint8_t type, uint8_t *fir
     *second = read_bus(addr+1);
 }
 
+uint8_t row_to_pixels(uint8_t first, uint8_t second, uint8_t start, uint8_t end, uint8_t* pixels){
+    uint8_t count = 0;
+
+    for(uint8_t j = start; j < end; j++){
+        pixels[count] = first >> (7 - j) & 1;
+        pixels[count++] |= (second >> (7 - j) & 1) << 1;
+    }
+
+    return count;
+}
+
 //TODO worry about window drawing
 void draw_line(){
-    uint8_t tile_idx, x, y, x_off, y_off, i, j;
+    uint8_t tile_idx, x, y, tmp, y_off, i, j;
     uint8_t first, second;
     uint16_t row, tile_map, addr, count;
     scanline line;
     obj_t tmp_spt;
 
     x = ppu.SCX;
-    //x = (count % 256) / 8;
-    x_off = ppu.SCX % 8;
+
     count = ppu.LY;
     count += ppu.SCY;
     //printf("LY 0x%x SCY 0x%x\n", ppu.LY, ppu.SCY);
@@ -210,31 +221,28 @@ void draw_line(){
     count = 0;
     for(i = 0; i < 20; i++){
         tile_idx = read_bus(addr + (x / 8));
-        printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
+        //printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
         read_tile_row(tile_idx, y_off, BG, &first, &second);
-        for(j = x % 8; j < 8; j++){
-            line.bg_pixels[count] = first >> (7 - j) & 1;
-            line.bg_pixels[count++] |= (second >> (7 - j) & 1) << 1;
-            x++;
-        }
+        tmp = row_to_pixels(first, second, x % 8, 8, &line.bg_pixels[count]);
+        count += tmp;
+        x += tmp;
     }
 
     //finish off the rest of the values
-    printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
+    //printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
     read_tile_row(tile_idx, y_off, BG, &first, &second);
     tile_idx = read_bus(addr + (x / 8));
-    for(;count < 160; count++){
-            line.bg_pixels[count] = first >> (7 - j) & 1;
-            line.bg_pixels[count++] |= (second >> (7 - j) & 1) << 1;
-            x++;
-    }
+    tmp = row_to_pixels(first, second, 0, 160 - count, &line.bg_pixels[count]);
+    count += tmp;
+    x += tmp;
 
 #ifndef BG_ONLY
     //write all of the sprite data into an aligned array
     for(i = 0; i < spt_metadata.count; i++){
         memcpy(&tmp_spt, &spt_metadata.to_display[i], sizeof(obj_t));
         y_off = tmp_spt.flags.Y_flip ? ~(tmp_spt.Y % 8) : tmp_spt.Y % 8;
-        line.spt_data[i].sprite_row = read_tile_row(tmp_spt.tile_index, y_off, OBJ);
+        read_tile_row(tmp_spt.tile_index, y_off, OBJ, &first, &second);
+        row_to_pixels(first, second, 0, 8, line.spt_data[i].pixels); //parse out pixel data
         line.spt_data[i].pallette = tmp_spt.flags.DMG_pallette ? ppu.OBP1 : ppu.OBP0;
         line.spt_data[i].X = tmp_spt.X;
         line.spt_data[i].sprite_flag = tmp_spt.sprite_flag;
@@ -244,6 +252,7 @@ void draw_line(){
     line.bg_to_obj = ppu.LCDC.flags.window_disp_enabled ? true : false; //only useful for cgb
     line.BGP = ppu.BGP;
     line.num_spt = spt_metadata.count;
+    line.Y = ppu.LY;
 
     write(ppu.LCD_fifo_write, &line, sizeof(scanline));
     return;
@@ -275,8 +284,9 @@ void ppu_cycle(){
                 ppu.dot_counter = 0;
                 if(ppu.LY == VBLANK_END){
                     ppu.LY = 0;
+                    usleep(1);
                     //set up the parameters for drawing
-                    *ppu.mem_perm_ptr = OAM_BLOCKED;
+                    //*ppu.mem_perm_ptr = OAM_BLOCKED;
                     ppu.STAT.flags.PPU_mode = OAM_SCAN;
                     if(ppu.STAT.flags.mode_2_int) ppu.stat_int();
                 }
@@ -289,7 +299,7 @@ void ppu_cycle(){
                 //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
                 scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
-                *ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
+                //*ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
             }
             break;
         case DRAW:
@@ -299,7 +309,7 @@ void ppu_cycle(){
                 if(ppu.STAT.flags.mode_0_int) ppu.stat_int();
                 *ppu.mem_perm_ptr = MEM_FREE;
                 draw_line();
-                if(ppu.LY == 0) getchar();
+                //if(ppu.LY == 0) getchar();
             }
             break;
         default:
