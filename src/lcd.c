@@ -132,6 +132,30 @@ void render_screen(){
     //draw_grid();
 }
 
+void check_buttons(){
+    uint8_t jc_start;
+
+    jc_start = lcd->joycon & 0xF;
+    lcd->A = IsKeyDown(KEY_M) ? 0 : 1;
+    lcd->B = IsKeyDown(KEY_L) ? 0 : 1;
+    lcd->Select = IsKeyDown(KEY_ENTER) ? 0 : 1;
+    lcd->Start = IsKeyDown(KEY_SPACE) ? 0 : 1;
+    if((lcd->joycon & 0xF) != jc_start)
+        lcd->sel_buttons = 0;
+    if((lcd->joycon & 0xF) == 0xF)
+        lcd->sel_buttons = 1;
+
+    jc_start = lcd->joycon & 0xF;
+    lcd->A = IsKeyDown(KEY_D) ? 0 : lcd->A & 1;
+    lcd->B = IsKeyDown(KEY_A) ? 0 : lcd->B & 1;
+    lcd->Select = IsKeyDown(KEY_W) ? 0 : lcd->Select & 1;
+    lcd->Start = IsKeyDown(KEY_S) ? 0 : lcd->Start & 1;
+    if((lcd->joycon & 0xF) != jc_start)
+        lcd->sel_dpad = 0;
+    if((lcd->joycon & 0xF) == 0xF)
+        lcd->sel_dpad = 1;
+}
+
 void lcd_loop(){
     SetTargetFPS(60);
     while(!WindowShouldClose()){
@@ -139,6 +163,7 @@ void lcd_loop(){
         lcd->spinlock = 1;
         for(uint8_t i = 0; i < 144; i++)
             parse_line(&lcd->lcd_data[i], i);
+        check_buttons();
         lcd->spinlock = 0;
 
         BeginDrawing();

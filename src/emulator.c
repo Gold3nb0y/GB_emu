@@ -6,6 +6,8 @@
 
 static emulator_t emu;
 
+extern LCD_t *lcd;
+
 void cleanup(int sig){
     LOG(INFO, "cleanup");
     release_bus(emu.main_bus);  
@@ -27,6 +29,22 @@ void reset_cpu(){
     return;
 }
 
+byte read_joycon(){
+    //uint8_t jc;
+    ////not worring about spintlock here, just reading
+    //jc = lcd->joycon;
+    //if((jc & 0x30) == 0x30){
+    //    return jc | 0xF;
+    //} else {
+    //    return jc;
+    //}
+    return lcd->joycon;
+}
+
+void write_joycon(byte data){
+    lcd->joycon |= data & 0xF0;
+}
+
 void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func){
     reg->addr = addr;
     reg->read_callback = read_func;
@@ -44,7 +62,7 @@ uint64_t init_io(main_bus_t *bus){
     }
     
     //joypad is special since it is only written to by hardware.
-    //init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
+    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
     init_io_reg(&ret[i++], SB, read_SB, write_SB);
     init_io_reg(&ret[i++], SC, NULL, write_SC);
     init_io_reg(&ret[i++], DIV, NULL, NULL);
@@ -113,7 +131,6 @@ void run(){
     struct timeval stop, start;
     uint8_t t_cycles, dots, m_cycles;
     ticks = t_cycles = dots = 0;
-    uint64_t status, result;
     LOG(INFO, "Beginning ROM execution");
     while(emu.running){
 #ifndef NATTACH_DB
@@ -138,6 +155,7 @@ void run(){
             timer_cycle(m_cycles);
             ticks += m_cycles;
         }
+
         gettimeofday(&stop, NULL);
         diff = stop.tv_usec - start.tv_usec;
         //printf("ticks %ld diff %ld\n", ticks, diff);

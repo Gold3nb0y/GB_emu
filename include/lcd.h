@@ -49,6 +49,18 @@ typedef struct {
 typedef struct lcd_struct {
     _Atomic uint8_t spinlock;
     uint8_t BGP;
+    union {
+        uint8_t joycon;  
+        struct{
+            uint8_t A : 1;
+            uint8_t B : 1;
+            uint8_t Select : 1;
+            uint8_t Start : 1;
+            uint8_t sel_dpad : 1;
+            uint8_t sel_buttons : 1;
+            uint8_t unused : 2;
+        };
+    };
     bool bg_to_obj;
     scanline lcd_data[144];
 } LCD_t;

@@ -92,37 +92,39 @@ void write_OBP1(byte data){
 }
 
 void read_obj(uint8_t idx, obj_t *obj){
-    obj->Y = read_bus(OAM_START + idx * sizeof(obj_t));
-    obj->X = read_bus(OAM_START + idx * sizeof(obj_t)+1);
-    obj->tile_index = read_bus(OAM_START + idx * sizeof(obj_t)+2);
-    obj->sprite_flag = read_bus(OAM_START + idx * sizeof(obj_t)+3);
+    address addr = OAM_START;
+    addr += (idx * 4);
+    obj->Y = read_bus(addr);
+    obj->X = read_bus(addr+1);
+    obj->tile_index = read_bus(addr + 2);
+    obj->sprite_flag = read_bus(addr + 3);
     return;
 }
 
 struct sprite_stack {
     obj_t to_display[10]; //up to 10 spt_metadata can be displayed for any 1 scanline
     uint8_t count;
-    uint8_t current;
 };
 
 struct sprite_stack spt_metadata = {0};
 
 //takes 80 cycles
-void scan_OAM(uint16_t scanline){
+void scan_OAM(uint8_t y){
     uint8_t count = 0;
     obj_t tmp_obj = {0};
     uint8_t sprite_size = 0;
     memset(&spt_metadata, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
     for(uint8_t i = 0; i < 40; i++){
         read_obj(i, &tmp_obj);
-        if(tmp_obj.X > 0 && scanline+16 >= tmp_obj.Y && count < 10){
+        if(tmp_obj.Y >= y && count < 10){
             sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
-            if(scanline+16 < tmp_obj.Y+sprite_size){
+            if(tmp_obj.Y < y+sprite_size){
                 memcpy(&spt_metadata.to_display[count], &tmp_obj, sizeof(obj_t));
                 count++;
             }
         }
     }
+    spt_metadata.count = count;
 }
 
 //this might change later if the piping doesn't work out, but for now I think this looks good
@@ -235,18 +237,18 @@ void draw_line(){
     count += tmp;
     x += tmp;
 
-#ifndef BG_ONLY
     //write all of the sprite data into an aligned array
     for(i = 0; i < spt_metadata.count; i++){
         memcpy(&tmp_spt, &spt_metadata.to_display[i], sizeof(obj_t));
-        y_off = tmp_spt.flags.Y_flip ? ~(tmp_spt.Y % 8) : tmp_spt.Y % 8;
+        printf("sprite.Y: %03d sprite.X: %03d sprite.idx: %03d\n", tmp_spt.X, tmp_spt.Y, tmp_spt.tile_index);
+        y_off = tmp_spt.Y - (ppu.LY + 8);
+        y_off = tmp_spt.flags.Y_flip ? y_off : 7 - y_off;
         read_tile_row(tmp_spt.tile_index, y_off, OBJ, &first, &second);
         row_to_pixels(first, second, 0, 8, line.spt_data[i].pixels); //parse out pixel data
         line.spt_data[i].pallette = tmp_spt.flags.DMG_pallette ? ppu.OBP1 : ppu.OBP0;
         line.spt_data[i].X = tmp_spt.X;
         line.spt_data[i].sprite_flag = tmp_spt.sprite_flag;
     }
-#endif
 
     line.num_spt = spt_metadata.count;
 
@@ -292,7 +294,7 @@ void ppu_cycle(uint8_t dots){
             //last cycle of OAM SCAN
             if(ppu.dot_counter + dots >= DRAW_START){
                 //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
-                scan_OAM(ppu.LY);
+                scan_OAM(ppu.LY + 8);
                 ppu.STAT.flags.PPU_mode = DRAW;
                 //*ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
             }

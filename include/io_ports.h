@@ -75,8 +75,6 @@ enum {
     IE      = 0xFFFF
 };
 
-byte read_joycon();
-void write_joycon(byte data);
 byte read_SB();
 void write_SB(byte data);
 void write_SC(byte data);
