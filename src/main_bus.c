@@ -107,7 +107,7 @@ byte read_bus_generic(address addr){
             return -1;
         }
         if(reg->read_callback == NULL){
-            LOG(ERROR, "register not readable");
+            LOGF(ERROR, "register 0x%x not readable", addr);
             return -1;
         }
 #ifdef DEBUG_BUS

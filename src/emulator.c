@@ -30,19 +30,19 @@ void reset_cpu(){
 }
 
 byte read_joycon(){
-    //uint8_t jc;
-    ////not worring about spintlock here, just reading
-    //jc = lcd->joycon;
-    //if((jc & 0x30) == 0x30){
-    //    return jc | 0xF;
-    //} else {
-    //    return jc;
-    //}
     return lcd->joycon;
 }
 
 void write_joycon(byte data){
-    lcd->joycon |= data & 0xF0;
+    while(lcd->spinlock);
+    lcd->spinlock = 1;
+
+    lcd->joycon = data & 0xF0;
+    if(((lcd->joycon >> 5) & 1) == 0) lcd->joycon |= lcd->buttons & 0xF;
+    else if(((lcd->joycon >> 4) & 1) == 0) lcd->joycon |= lcd->d_pad & 0xF;
+    else lcd->joycon |= 0xF;
+
+    lcd->spinlock = 0;
 }
 
 void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func){
@@ -65,7 +65,7 @@ uint64_t init_io(main_bus_t *bus){
     init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
     init_io_reg(&ret[i++], SB, read_SB, write_SB);
     init_io_reg(&ret[i++], SC, NULL, write_SC);
-    init_io_reg(&ret[i++], DIV, NULL, NULL);
+    init_io_reg(&ret[i++], DIV, read_DIV, write_DIV);
 
     //timer stuff, seems complicated ignoring until I am sure I need a timer
     init_io_reg(&ret[i++], TIMA, read_TIMA, write_TIMA);

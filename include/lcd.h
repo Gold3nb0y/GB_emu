@@ -26,12 +26,12 @@ typedef struct spt_data{
     union{
         uint8_t sprite_flag;
         struct {
-            uint8_t priority: 1;
-            uint8_t Y_flip: 1;
-            uint8_t X_flip: 1;
-            uint8_t DMG_pallette: 1;
-            uint8_t bank: 1;
             uint8_t cgb_pallette: 3;
+            uint8_t bank: 1;
+            uint8_t DMG_pallette: 1;
+            uint8_t X_flip: 1;
+            uint8_t Y_flip: 1;
+            uint8_t priority: 1;
         } flags;
     };
 } sprite_t;
@@ -61,6 +61,8 @@ typedef struct lcd_struct {
             uint8_t unused : 2;
         };
     };
+    uint8_t buttons;
+    uint8_t d_pad;
     bool bg_to_obj;
     scanline lcd_data[144];
 } LCD_t;

@@ -1,5 +1,6 @@
 #include "ppu.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <unistd.h>
 
 static PPU_t ppu;
@@ -114,11 +115,11 @@ void scan_OAM(uint8_t y){
     obj_t tmp_obj = {0};
     uint8_t sprite_size = 0;
     memset(&spt_metadata, 0, sizeof(struct sprite_stack)); //reset the displaybuffer
+    sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
     for(uint8_t i = 0; i < 40; i++){
         read_obj(i, &tmp_obj);
-        if(tmp_obj.Y >= y && count < 10){
-            sprite_size = ppu.LCDC.flags.sprite_size ? 16 : 8;
-            if(tmp_obj.Y < y+sprite_size){
+        if(tmp_obj.Y + sprite_size > y + 16 && count < 10){
+            if(tmp_obj.Y <= y + 16){
                 memcpy(&spt_metadata.to_display[count], &tmp_obj, sizeof(obj_t));
                 count++;
             }
@@ -193,7 +194,6 @@ uint8_t row_to_pixels(uint8_t first, uint8_t second, uint8_t start, uint8_t end,
     return count;
 }
 
-//TODO worry about window drawing
 void draw_line(){
     uint8_t tile_idx, x, y, tmp, y_off, i, j;
     uint8_t first, second;
@@ -205,13 +205,10 @@ void draw_line(){
 
     count = ppu.LY;
     count += ppu.SCY;
-    //printf("LY 0x%x SCY 0x%x\n", ppu.LY, ppu.SCY);
     y = (count % 256) / 8;
     count = ppu.SCY;
     count += ppu.LY;
     y_off = count % 8;
-
-    //printf("y_val 0x%x\n", y);
 
     tile_map = ppu.LCDC.flags.bg_tile_map_select ? 0x9C00 : 0x9800;
 
@@ -229,8 +226,8 @@ void draw_line(){
         x += tmp;
     }
 
+    tile_idx = read_bus(addr + (x / 8));
     //finish off the rest of the values
-    //printf("addr: 0x%04x x: %02d y: %02d y_off: %d tile_idx: 0x%02x\n", addr, x, y, y_off, tile_idx);
     read_tile_row(tile_idx, y_off, BG, &first, &second);
     tile_idx = read_bus(addr + (x / 8));
     tmp = row_to_pixels(first, second, 0, 160 - count, &line.bg_pixels[count]);
@@ -240,9 +237,8 @@ void draw_line(){
     //write all of the sprite data into an aligned array
     for(i = 0; i < spt_metadata.count; i++){
         memcpy(&tmp_spt, &spt_metadata.to_display[i], sizeof(obj_t));
-        printf("sprite.Y: %03d sprite.X: %03d sprite.idx: %03d\n", tmp_spt.X, tmp_spt.Y, tmp_spt.tile_index);
-        y_off = tmp_spt.Y - (ppu.LY + 8);
-        y_off = tmp_spt.flags.Y_flip ? y_off : 7 - y_off;
+        y_off = (ppu.LY + 16) - tmp_spt.Y;
+        y_off = tmp_spt.flags.Y_flip ? 7-y_off : y_off;
         read_tile_row(tmp_spt.tile_index, y_off, OBJ, &first, &second);
         row_to_pixels(first, second, 0, 8, line.spt_data[i].pixels); //parse out pixel data
         line.spt_data[i].pallette = tmp_spt.flags.DMG_pallette ? ppu.OBP1 : ppu.OBP0;
@@ -294,7 +290,7 @@ void ppu_cycle(uint8_t dots){
             //last cycle of OAM SCAN
             if(ppu.dot_counter + dots >= DRAW_START){
                 //I'll scan OAM all at once when it's cycle is finished, should save time in overhead
-                scan_OAM(ppu.LY + 8);
+                scan_OAM(ppu.LY);
                 ppu.STAT.flags.PPU_mode = DRAW;
                 //*ppu.mem_perm_ptr = OAM_VRAM_BLOCKED;
             }

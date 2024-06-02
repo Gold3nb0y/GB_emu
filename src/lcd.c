@@ -114,10 +114,10 @@ void render_screen(){
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, WHITE);
                     break;
                 case 1:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLUE);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, GREEN);
                     break;
                 case 2:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, PURPLE);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, DARKGREEN);
                     break;
                 case 3:
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLACK);
@@ -133,27 +133,21 @@ void render_screen(){
 }
 
 void check_buttons(){
-    uint8_t jc_start;
+    uint8_t d_pad, buttons;
+    d_pad = buttons = 0;
 
-    jc_start = lcd->joycon & 0xF;
-    lcd->A = IsKeyDown(KEY_M) ? 0 : 1;
-    lcd->B = IsKeyDown(KEY_L) ? 0 : 1;
-    lcd->Select = IsKeyDown(KEY_ENTER) ? 0 : 1;
-    lcd->Start = IsKeyDown(KEY_SPACE) ? 0 : 1;
-    if((lcd->joycon & 0xF) != jc_start)
-        lcd->sel_buttons = 0;
-    if((lcd->joycon & 0xF) == 0xF)
-        lcd->sel_buttons = 1;
+    buttons |= IsKeyDown(KEY_M) ? 0 : 1;
+    buttons |= IsKeyDown(KEY_L) ? 0 : 2;
+    buttons |= IsKeyDown(KEY_ENTER) ? 0 : 4;
+    buttons |= IsKeyDown(KEY_SPACE) ? 0 : 8;
 
-    jc_start = lcd->joycon & 0xF;
-    lcd->A = IsKeyDown(KEY_D) ? 0 : lcd->A & 1;
-    lcd->B = IsKeyDown(KEY_A) ? 0 : lcd->B & 1;
-    lcd->Select = IsKeyDown(KEY_W) ? 0 : lcd->Select & 1;
-    lcd->Start = IsKeyDown(KEY_S) ? 0 : lcd->Start & 1;
-    if((lcd->joycon & 0xF) != jc_start)
-        lcd->sel_dpad = 0;
-    if((lcd->joycon & 0xF) == 0xF)
-        lcd->sel_dpad = 1;
+    d_pad |= IsKeyDown(KEY_D) ? 0 : 1;
+    d_pad |= IsKeyDown(KEY_A) ? 0 : 2;
+    d_pad |= IsKeyDown(KEY_W) ? 0 : 4;
+    d_pad |= IsKeyDown(KEY_S) ? 0 : 8;
+
+    lcd->buttons = buttons;
+    lcd->d_pad = d_pad;
 }
 
 void lcd_loop(){

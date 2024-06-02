@@ -44,12 +44,12 @@ typedef struct object{
     union{
         uint8_t sprite_flag;
         struct {
-            uint8_t priority: 1;
-            uint8_t Y_flip: 1;
-            uint8_t X_flip: 1;
-            uint8_t DMG_pallette: 1;
-            uint8_t bank: 1;
             uint8_t cgb_pallette: 3;
+            uint8_t bank: 1;
+            uint8_t DMG_pallette: 1;
+            uint8_t X_flip: 1;
+            uint8_t Y_flip: 1;
+            uint8_t priority: 1;
         } flags;
     };
 } obj_t;
@@ -99,26 +99,26 @@ typedef struct PPU_struct{
     union {
         uint8_t data;
         struct {
-            uint8_t disp_enabled: 1;
-            uint8_t window_tile_map_select: 1;
-            uint8_t window_disp_enabled: 1;
-            uint8_t tile_data_select: 1;
-            uint8_t bg_tile_map_select: 1;
-            uint8_t sprite_size: 1;
-            uint8_t sprite_enable: 1;
             uint8_t bg_window_enable: 1;
+            uint8_t sprite_enable: 1;
+            uint8_t sprite_size: 1;
+            uint8_t bg_tile_map_select: 1;
+            uint8_t tile_data_select: 1;
+            uint8_t window_disp_enabled: 1;
+            uint8_t window_tile_map_select: 1;
+            uint8_t disp_enabled: 1;
         } flags;
     } LCDC;
     union{
         uint8_t data;
         struct {
-            uint8_t unused: 1;
-            uint8_t LYC_stat_int: 1;
-            uint8_t mode_2_int: 1;
-            uint8_t mode_1_int: 1;
-            uint8_t mode_0_int: 1;
-            uint8_t coincidence_flag: 1; //set if LYC == LY
             uint8_t PPU_mode: 2;
+            uint8_t coincidence_flag: 1; //set if LYC == LY
+            uint8_t mode_0_int: 1;
+            uint8_t mode_1_int: 1;
+            uint8_t mode_2_int: 1;
+            uint8_t LYC_stat_int: 1;
+            uint8_t unused: 1;
         } flags;
     } STAT;
     uint16_t dot_counter; //to keep track of mode and adjust for pentalites

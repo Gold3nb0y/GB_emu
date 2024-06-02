@@ -89,7 +89,7 @@ void select_mapper(uint8_t cart_type, mapper_t *mapper){
             LOGF(ERROR, "Cartridge 0x%x not supported\n", cart_type);
             exit(1);
         default:
-            LOG(ERROR, "Cartridge not recognized");
+            LOGF(ERROR, "Cartridge 0x%x not recognized", cart_type);
             exit(1);
         }
 }
