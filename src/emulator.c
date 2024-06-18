@@ -45,61 +45,51 @@ void write_joycon(byte data){
     lcd->spinlock = 0;
 }
 
-void init_io_reg(io_reg *reg, address addr, read_io read_func, write_io write_func){
+void init_io_reg(address addr, read_io read_func, write_io write_func){
+    io_reg *reg = malloc(sizeof(*reg));
+    memset(reg, 0, sizeof(*reg));
     reg->addr = addr;
     reg->read_callback = read_func;
     reg->write_callback = write_func;
+
+    reg->next = emu.main_bus->head_io_regs; 
+    emu.main_bus->head_io_regs = reg;
     return;
 }
 
-uint64_t init_io(main_bus_t *bus){
-    io_reg* ret;
-    uint64_t i = 0;
-    ret = calloc(NUM_REGS, sizeof(io_reg));
-    if(!ret){
-        LOG(ERROR, "calloc");
-        exit(1);
-    }
+void init_io(){
+    emu.main_bus->head_io_regs = NULL;
     
     //joypad is special since it is only written to by hardware.
-    init_io_reg(&ret[i++], JOYP, read_joycon, write_joycon);
-    init_io_reg(&ret[i++], SB, read_SB, write_SB);
-    init_io_reg(&ret[i++], SC, NULL, write_SC);
-    init_io_reg(&ret[i++], DIV, read_DIV, write_DIV);
+    init_io_reg(JOYP, read_joycon, write_joycon);
+    init_io_reg(SB, read_SB, write_SB);
+    init_io_reg(SC, NULL, write_SC);
+    init_io_reg(DIV, read_DIV, write_DIV);
 
     //timer stuff, seems complicated ignoring until I am sure I need a timer
-    init_io_reg(&ret[i++], TIMA, read_TIMA, write_TIMA);
-    init_io_reg(&ret[i++], TMA, read_TMA, write_TIMA);
-    init_io_reg(&ret[i++], TAC, read_TAC, write_TAC);
+    init_io_reg(TIMA, read_TIMA, write_TIMA);
+    init_io_reg(TMA, read_TMA, write_TIMA);
+    init_io_reg(TAC, read_TAC, write_TAC);
 
     //cpu
-    init_io_reg(&ret[i++], IF, read_IF, write_IF);
-    init_io_reg(&ret[i++], IE, read_IE, write_IE);
+    init_io_reg(IF, read_IF, write_IF);
+    init_io_reg(IE, read_IE, write_IE);
 
     //all the registers for the display
-    init_io_reg(&ret[i++], LCDC, read_LCDC, write_LCDC);
-    init_io_reg(&ret[i++], STAT, read_STAT, write_STAT);
-    init_io_reg(&ret[i++], SCX, read_SCX, write_SCX);
-    init_io_reg(&ret[i++], SCY, read_SCY, write_SCY);
-    init_io_reg(&ret[i++], WX, read_WX, write_WX);
-    init_io_reg(&ret[i++], WY, read_WY, write_WY);
-    init_io_reg(&ret[i++], LY, read_LY, NULL);
-    init_io_reg(&ret[i++], LYC, read_LYC, write_LYC);
-    init_io_reg(&ret[i++], BGP, read_BGP, write_BGP);
-    init_io_reg(&ret[i++], OBP0, read_OBP0, write_OBP0);
-    init_io_reg(&ret[i++], OBP1, read_OBP1, write_OBP1);
+    init_io_reg(LCDC, read_LCDC, write_LCDC);
+    init_io_reg(STAT, read_STAT, write_STAT);
+    init_io_reg(SCX, read_SCX, write_SCX);
+    init_io_reg(SCY, read_SCY, write_SCY);
+    init_io_reg(WX, read_WX, write_WX);
+    init_io_reg(WY, read_WY, write_WY);
+    init_io_reg(LY, read_LY, NULL);
+    init_io_reg(LYC, read_LYC, write_LYC);
+    init_io_reg(BGP, read_BGP, write_BGP);
+    init_io_reg(OBP0, read_OBP0, write_OBP0);
+    init_io_reg(OBP1, read_OBP1, write_OBP1);
 
-    init_io_reg(&ret[i++], VBK, read_VBK, write_VBK);
-    init_io_reg(&ret[i++], DMA, NULL, start_DMA);
-
-
-    bus->io_regs = ret;
-
-    return i;
-}
-
-void setup_io_regs(){
-    emu.main_bus->mapper->num_regs = init_io(emu.main_bus);
+    init_io_reg(VBK, read_VBK, write_VBK);
+    init_io_reg(DMA, NULL, start_DMA);
 }
 
 void create_emulator(char* filename){
@@ -119,7 +109,7 @@ void create_emulator(char* filename){
     emu.ppu->vblank_int = vblank_int;
     emu.ppu->stat_int = stat_int;
     emu.clock->timer_int = timer_int;
-    setup_io_regs();
+    init_io();
     emu.running = true;
     return;
 }

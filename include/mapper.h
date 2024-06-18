@@ -26,7 +26,6 @@ typedef struct mapper_struct{
     byte cur_VRAM;
     byte cur_EXRAM;
     byte cur_WRAM;
-    uint num_regs;
 
     union __attribute__((aligned(16))) {
         struct {

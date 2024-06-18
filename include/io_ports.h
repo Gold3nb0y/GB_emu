@@ -8,6 +8,7 @@ typedef void(*write_io)(byte);
 #define NUM_REGS 0x20
 
 typedef struct io_struct{
+    struct io_struct *next;
     address addr;
     read_io read_callback;
     write_io write_callback;

@@ -114,10 +114,10 @@ void render_screen(){
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, WHITE);
                     break;
                 case 1:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, GREEN);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLUE);
                     break;
                 case 2:
-                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, DARKGREEN);
+                    DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, DARKBLUE);
                     break;
                 case 3:
                     DrawRectangle(j * SCALE, i * SCALE, SCALE, SCALE, BLACK);

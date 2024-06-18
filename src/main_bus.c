@@ -54,28 +54,30 @@ main_bus_t* create_bus(uint8_t num_ROM, uint8_t val_RAM, bool is_CGB, char* file
 }
 
 void release_bus(main_bus_t* bus){
+    io_reg *tmp, *next;
     release_mapper(bus->mapper);
     free(bus->mapper);
     free(bus->OAM);
-    if(bus->io_regs) free(bus->io_regs);
+
+    for(tmp = bus->head_io_regs; tmp != NULL;){
+        next = tmp->next;
+        free(tmp);
+        tmp = next;
+    }
+
     memset(bus, 0, sizeof(main_bus_t));
     free(bus);
     LOG(INFO, "bus freed")
     return;
 }
 
-io_reg* check_io_reg(address addr, io_reg* regs){
-    int count = 0;
-    io_reg* ret;
-    for(;count < bus->mapper->num_regs; count++){
-        if(regs[count].addr == addr){
-            ret = &regs[count];
-            goto success;
-        }
+io_reg* check_io_reg(address addr){
+    io_reg* ret = bus->head_io_regs;
+    for(;ret != NULL; ret = ret->next){
+        if(ret->addr == addr)
+            return ret;
     }
-    ret = NULL;
-success:
-    return ret;
+    return NULL;
 }
 
 byte read_bus_generic(address addr){
@@ -101,7 +103,7 @@ byte read_bus_generic(address addr){
     } else if(addr >= OAM_END && addr < IO_START){
         LOGF(ERROR, "{READ} undocumented memory access 0x%x\n", addr);
     } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
-        io_reg* reg = check_io_reg(addr, bus->io_regs);
+        io_reg* reg = check_io_reg(addr);
         if(!reg){
             LOGF(ERROR, "{READ} register 0x%x not mapped\n", addr);
             return -1;
@@ -140,7 +142,7 @@ void write_bus_generic(address addr, byte data){
     } else if(addr >= OAM_END && addr < IO_START){
         LOGF(ERROR, "{WRITE} undocumented memory access 0x%x\n", addr);
     } else if((addr >= IO_START && addr < HRAM_START) || addr == IE){
-        io_reg* reg = check_io_reg(addr, bus->io_regs);
+        io_reg* reg = check_io_reg(addr);
         if(!reg){
             LOGF(ERROR, "{WRITE} register 0x%x not mapped", addr);
             return;

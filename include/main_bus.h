@@ -16,7 +16,7 @@ typedef struct main_bus_struct {
     byte* WRAM_BN; //CGB switchable 1-7
     byte* OAM; //stores the display data for all sprites
     mapper_t* mapper;
-    io_reg *io_regs;
+    io_reg *head_io_regs;
     struct {
         address DMA_addr;
         byte  DMA_count;
